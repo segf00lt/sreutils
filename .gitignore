@@ -1,3 +1,8 @@
+lib/include/*
+lib/link/*
+etc
+tags
+vgcore*
 *.o
 *.a
 *test*

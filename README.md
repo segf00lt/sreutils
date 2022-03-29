@@ -1,13 +1,11 @@
 # sreutils
 
-UNIX core utilities, redesigned with Rob Pike's
+The UNIX holy trinity, redesigned with Rob Pike's
 [structural regular expressions](http://doc.cat-v.org/bell_labs/structural_regexps/)
 in mind.
 
 ## TODO
 
-- `grep`
-- `sort`
-- `diff`
-- `sed`
-- `awk`
+- `sgrep` (need a better name)
+- `pike` (`sed` replacement with `sam` syntax)
+- `auk` (`awk` replacement)

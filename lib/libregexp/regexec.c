@@ -43,10 +43,15 @@ regexec1(Reprog *progp,	/* program to run */
 	/* Execute machine once for each character, including terminal NUL */
 	s = j->starts;
 	do{
+		/* NOTE: skips s to first matching RUNE or BOL */
 		/* fast check for first char */
 		if(checkstart) {
 			switch(j->starttype) {
 			case RUNE:
+				/* NOTE: utfrune calls strchr if j->startchar is a char,
+				 * if j->startchar is a Rune utfrune walks till
+				 * the matching Rune in s is found
+				 */
 				p = utfrune(s, j->startchar);
 				if(p == 0 || s == j->eol)
 					return match;
@@ -56,6 +61,7 @@ regexec1(Reprog *progp,	/* program to run */
 				if(s == bol)
 					break;
 				p = utfrune(s, '\n');
+				/* NOTE: second check to do with submatch tracking (?) */
 				if(p == 0 || s == j->eol)
 					return match;
 				s = p+1;
@@ -63,6 +69,7 @@ regexec1(Reprog *progp,	/* program to run */
 			}
 		}
 		r = *(uchar*)s;
+		/* convert char to rune if needed */
 		if(r < Runeself)
 			n = 1;
 		else
@@ -185,6 +192,7 @@ regexec2(Reprog *progp,	/* program to run */
 	return rv;
 }
 
+/* NOTE: maximum number of threads for regexec is 250 */
 extern int
 regexec(Reprog *progp,	/* program to run */
 	char *bol,	/* string to run machine on */
@@ -221,11 +229,18 @@ regexec(Reprog *progp,	/* program to run */
 	j.reliste[0] = relist0 + nelem(relist0) - 2;
 	j.reliste[1] = relist1 + nelem(relist1) - 2;
 
+	/* NOTE: regexec1 runs progp using statically allocated thread
+	 * lists, relist0 and relist1 
+	 */
 	rv = regexec1(progp, bol, mp, ms, &j);
 	if(rv >= 0)
 		return rv;
+	/* NOTE: regexec2 runs progp using dynamically allocated thread
+	 * lists which it allocates, and frees before returning
+	 */
 	rv = regexec2(progp, bol, mp, ms, &j);
 	if(rv >= 0)
 		return rv;
+	/* god help you if the expression you gave has more than 250 alternations */
 	return -1;
 }
