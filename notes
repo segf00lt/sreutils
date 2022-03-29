@@ -1,0 +1,20 @@
+int sregexec(Biobuf *bp, /* file buffer to read */
+	 Reprog *progp,	 /* regex prog to excecute */
+	 unsigned long start,	/* pos to start at in file */
+	 unsigned long end,	/* pos to end at in file */
+	 Srematch *m);	/* Srematch pointer */
+
+Srematch *m is a struct for storing the beginning and end positions
+in a file of the bytes matched by progp.
+
+sregexec works as follows:
+	1) allocate static thread list and set various variables
+	2) move to index start in the file
+	3) begin stage 1 execution:
+		3.1) read through file until first char in progp is found
+		3.2) once first char is found record its position in m->s
+		3.3) begin normal execution
+		3.4) if match is reached record current position in m->e
+	4) if stage 1 success return success
+	5) otherwise run stage 2:
+		malloc thread list and call stage 1 with it
