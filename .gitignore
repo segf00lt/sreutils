@@ -1,4 +1,5 @@
 lib/include/*
+*.vim
 lib/link/*
 etc
 tags

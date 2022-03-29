@@ -76,6 +76,7 @@ regexec1(Reprog *progp,	/* program to run */
 			n = chartorune(&r, s);
 
 		/* switch run lists */
+		/* NOTE: this is where the thread lists get swapped */
 		tl = j->relist[flag];
 		tle = j->reliste[flag];
 		nl = j->relist[flag^=1];
@@ -83,7 +84,10 @@ regexec1(Reprog *progp,	/* program to run */
 		nl->inst = 0;
 
 		/* Add first instruction to current list */
-		if(match == 0)
+		/* NOTE: _renewemptythread will only renew the threadlist on the very first pass,
+		 * on subsequent passes it adds progp->startinst to the end of the threadlist
+		 */
+		if(match == 0) /* keep the machine going until it starts matching stuff */
 			_renewemptythread(tl, progp->startinst, ms, s);
 
 		/* Execute machine until current list is empty */
