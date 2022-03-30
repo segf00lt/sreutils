@@ -169,62 +169,63 @@ Overflow:
 
 		for(tlp = tl; tlp->inst; ++tlp) {
 			for(inst = tlp->inst; ; inst = inst->u2.next) {
-				switch(inst->type){
-				case RUNE:
-					if(inst->u1.r == r) {
-						if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
-							goto Overflow;
-					}
-					break;
-				case LBRA:
-					tlp->se.m[inst->u1.subid].s.sp = s;
-					continue;
-				case RBRA:
-					tlp->se.m[inst->u1.subid].e.ep = s;
-					continue;
-				case ANY:
-					if(r != '\n') {
-						if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
+				switch(inst->type) {
+					case RUNE:
+						if(inst->u1.r == r) {
+							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
 								goto Overflow;
-					}
-					break;
-				case ANYNL:
-					if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
-						goto Overflow;
-					break;
-				case BOL:
-					if(pos == start || prevr == '\n')
+						}
+						break;
+					case LBRA:
+						tlp->se.m[inst->u1.subid].s.sp = s;
 						continue;
-					break;
-				case EOL:
-					if(pos == end || r == 0 || r == '\n')
+					case RBRA:
+						tlp->se.m[inst->u1.subid].e.ep = s;
 						continue;
-					break;
-				case CCLASS:
-					if(inclass(r, inst->u1.cp)) {
+					case ANY:
+						if(r != '\n') {
+							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
+								goto Overflow;
+						}
+						break;
+					case ANYNL:
 						if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
 							goto Overflow;
-					}
-					break;
-				case NCCLASS:
-					if(!inclass(r, inst->u1.cp)) {
-						if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
+						break;
+					case BOL:
+						if(pos == start || prevr == '\n')
+							continue;
+						break;
+					case EOL:
+						if(pos == end || r == 0 || r == '\n')
+							continue;
+						break;
+					case CCLASS:
+						if(inclass(r, inst->u1.cp)) {
+							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
+								goto Overflow;
+						}
+						break;
+					case NCCLASS:
+						if(!inclass(r, inst->u1.cp)) {
+							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
+								goto Overflow;
+						}
+						break;
+					case OR:
+						/* evaluate right choice later */
+						if(addthread(tlp, inst->u1.right, ms, &tlp->se) == tle)
 							goto Overflow;
-					}
-					break;
-				case OR:
-					/* evaluate right choice later */
-					if(addthread(tlp, inst->u1.right, ms, &tlp->se) == tle)
-						goto Overflow;
-					/* efficiency: advance and re-evaluate */
-					continue;
-				case END:	/* Match! */
-					match = 1;
-					tlp->se.m[0].e = pos;
-					if(mp != 0)
-						savematch(mp, ms, &tlp->se);
-					break;
+						/* efficiency: advance and re-evaluate */
+						continue;
+					case END:	/* Match! */
+						match = 1;
+						tlp->se.m[0].e = pos;
+						if(mp != 0)
+							savematch(mp, ms, &tlp->se);
+						break;
 				}
+
 				break;
 			} /* inner thread loop */
 		} /* outer thread loop */

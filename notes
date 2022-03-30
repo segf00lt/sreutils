@@ -18,3 +18,8 @@ sregexec works as follows:
 	4) if stage 1 success return success
 	5) otherwise run stage 2:
 		malloc thread list and call stage 1 with it
+
+TODO
+====
+
+- make sregexec.c checkstart more like lib/libregexp/regexec.c
