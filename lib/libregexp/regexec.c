@@ -30,6 +30,8 @@ regexec1(Reprog *progp,	/* program to run */
 	int match;
 	char *p;
 
+	Resublist sl;
+
 	match = 0;
 	checkstart = j->starttype;
 	if(mp)
@@ -83,12 +85,16 @@ regexec1(Reprog *progp,	/* program to run */
 		nle = j->reliste[flag];
 		nl->inst = 0;
 
-		/* Add first instruction to current list */
 		/* NOTE: _renewemptythread will only renew the threadlist on the very first pass,
 		 * on subsequent passes it adds progp->startinst to the end of the threadlist
 		 */
-		if(match == 0) /* keep the machine going until it starts matching stuff */
-			_renewemptythread(tl, progp->startinst, ms, s);
+		/* Add first instruction to current list */
+		if(match == 0 && tl->inst == 0) { /* keep the machine going until it starts matching stuff */
+			//_renewemptythread(tl, progp->startinst, ms, s);
+			/* NOTE: restarts execution from first inst and sets main submatch begin to s */
+			sl.m[0].s.sp = s;
+			_renewthread(tl, progp->startinst, ms, &sl);
+		}
 
 		/* Execute machine until current list is empty */
 		for(tlp=tl; tlp->inst; tlp++){	/* assignment = */
@@ -151,6 +157,11 @@ regexec1(Reprog *progp,	/* program to run */
 					match = 1;
 					tlp->se.m[0].e.ep = s;
 					if(mp != 0)
+						/* NOTE: as said in the comment above _renewmatch's decl
+						 * this function saves the main match in mp[0]
+						 *
+						 * It should be callen _savematch
+						 */
 						_renewmatch(mp, ms, &tlp->se);
 					break;
 				}

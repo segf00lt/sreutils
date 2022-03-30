@@ -13,8 +13,8 @@ _renewmatch(Resub *mp, int ms, Resublist *sp)
 
 	if(mp==0 || ms<=0)
 		return;
-	if(mp[0].s.sp==0 || sp->m[0].s.sp<mp[0].s.sp ||
-	   (sp->m[0].s.sp==mp[0].s.sp && sp->m[0].e.ep>mp[0].e.ep)){
+	if(mp[0].s.sp == 0 || sp->m[0].s.sp < mp[0].s.sp ||
+	   (sp->m[0].s.sp == mp[0].s.sp && sp->m[0].e.ep > mp[0].e.ep)){
 		for(i=0; i<ms && i<NSUBEXP; i++)
 			mp[i] = sp->m[i];
 		for(; i<ms; i++)
@@ -78,9 +78,9 @@ _renewemptythread(Relist *lp,	/* _relist to add to */
 		}
 	}
 	p->inst = ip;
-	if(ms > 1)
+	if(ms > 1) /* clear any submatches */
 		memset(&p->se, 0, sizeof(p->se));
-	p->se.m[0].s.sp = sp;
+	p->se.m[0].s.sp = sp; /* reset beginning of match[0] to beginning of string */
 	(++p)->inst = 0;
 	return p;
 }
