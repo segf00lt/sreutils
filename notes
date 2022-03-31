@@ -19,7 +19,10 @@ sregexec works as follows:
 	5) otherwise run stage 2:
 		malloc thread list and call stage 1 with it
 
+expression to match a C function:
+([A-Za-z_][A-Za-z_0-9]* ?)+[\n \t]+[A-Za-z_][A-Za-z_0-9]*\\((.*\n?)+\\)[\n \t]?{\n((\t.*\n)|^\n)+}
+
 TODO
 ====
 
-- make sregexec.c checkstart more like lib/libregexp/regexec.c
+- make ^$ work for empty line matching

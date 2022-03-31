@@ -1,3 +1,5 @@
+#ifndef _REGCOMP_H
+#define _REGCOMP_H
 /*
  *  substitution list
  */
@@ -65,3 +67,4 @@ extern Relist*	_renewthread(Relist*, Reinst*, int, Resublist*);
 extern void	_renewmatch(Resub*, int, Resublist*);
 extern Relist*	_renewemptythread(Relist*, Reinst*, int, char*);
 extern Relist*	_rrenewemptythread(Relist*, Reinst*, int, Rune*);
+#endif

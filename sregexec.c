@@ -4,33 +4,12 @@
 #include <regcomp.h>
 #include <bio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
+#include <string.h>
+#include <unistd.h>
+#include "sregexec.h"
 
-#define STATICLEN 10
-#define DYNLEN 250
-
-typedef struct Sresub {
-	unsigned long s;
-	unsigned long e;
-} Sresub;
-
-typedef struct Sresublist {
-	Sresub m[NSUBEXP]; /* NSUBEXP defined in lib/libregexp/regcomp.h */
-} Sresublist;
-
-typedef struct Srelist {
-	Reinst *inst;
-	Sresublist se;
-} Srelist;
-
-size_t
-Bfsize(Biobuf *bp)
-{
-	int fd = Bfildes(bp);
-	struct stat s;
-	fstat(fd, &s);
-	return s.st_size;
-}
+#define STATICLEN 11
+#define DYNLEN 301
 
 static int
 inclass(Rune r, /* character to match */
@@ -80,16 +59,34 @@ addthread(Srelist *lp,	/* list to add to */
 	return p;
 }
 
+static void
+savematch(Sresub *mp,
+	int ms,
+	Sresublist *sp)
+{
+	int i;
+
+	if(mp == 0 || ms <= 0)
+		return;
+
+	if( mp[0].s == 0 || sp->m[0].s < mp[0].s || (sp->m[0].s == mp[0].s && sp->m[0].e > mp[0].e) ) {
+		for(i = 0; i < ms && i < NSUBEXP; i++)
+			mp[i] = sp->m[i];
+		for(; i < ms; i++)
+			mp[i].s = mp[i].e = 0;
+	}
+}
+
 /* structural regex execution is performed on a file (or Biobuf in this case)
  * as opposed to an in memory string
  */
 int
-sregexec(Biobuf *bp,	/* file buffer to read */
-	 Reprog *progp,	/* regex prog to execute */
-	 Sresub *mp,	/* subexpression elements */
-	 int ms)	/* num of elem in mp */
+sregexec(Reprog *progp,	/* regex prog to execute */
+	Biobuf *bp,	/* file buffer to read */
+	Sresub *mp,	/* subexpression elements */
+	int ms)	/* num of elem in mp */
 {
-	Relist threadlist0[STATICLEN], threadlist1[STATICLEN];
+	Srelist threadlist0[STATICLEN], threadlist1[STATICLEN];
 	threadlist0[0].inst = threadlist1[0].inst = 0;
 
 	Srelist *tl = threadlist0;
@@ -107,14 +104,18 @@ sregexec(Biobuf *bp,	/* file buffer to read */
 	unsigned long end;
 	unsigned long pos;
 
+	Rune r;
+	Rune prevr;
+
 	if(mp && ms > 0) {
-		if(mp->s)
-			start = mp->s;
-		if(mp->e)
-			end = mp->e;
+		start = mp->s;
+		end = mp->e;
 
 		for(int i = 0; i < ms; ++i)
 			mp[i].s = mp[i].e = 0;
+	} else {
+		start = 0;
+		end = Bseek(bp, 0, SEEK_END);
 	}
 
 	int starttype = progp->startinst->type;
@@ -122,34 +123,14 @@ sregexec(Biobuf *bp,	/* file buffer to read */
 
 	int overflow = 0; /* counts number of times tl and/or nl's capacity is reached */
 	int match = 0;
-	int checkstart = 0;
 
 	Bseek(bp, start, 0); /* go to start */
 
-Overflow:
-	if(overflow++ == 1) {
-		tmp = malloc(DYNLEN * sizeof(Srelist));
-		memcpy(tmp, tl, tle - tl);
-		tl = tmp;
+Execloop:
+	while((pos = Boffset(bp)) < end) {
 
-		tmp = malloc(DYNLEN * sizeof(Srelist));
-		memcpy(tmp, nl, nle - nl);
-		nl = tmp;
-
-		tle = tl + DYNLEN - 2;
-		nle = nl + DYNLEN - 2;
-	} else if(overflow > 1) {
-		if(tl)
-			free(tl);
-		if(nl)
-			free(nl);
-
-		fprint(2, "sregexec: overflowed threadlist\n");
-
-		return -1;
-	}
-
-	for(Rune r = Bgetrune(bp), prevr = 0; (pos = Boffset(bp)) <= end; prevr = r, r = Bgetrune(bp)) {
+		prevr = r;
+		r = Bgetrune(bp);
 
 		if(startchar && nl->inst == 0 && startchar != r) /* skip to first character in progp */
 			continue;
@@ -161,6 +142,7 @@ Overflow:
 		tmp = tle;
 		tle = nle;
 		nle = tmp;
+		nl->inst = 0;
 
 		if(match == 0 && tl->inst == 0) { /* restart until progress is made or match is found */
 			sl.m[0].s = pos;
@@ -177,10 +159,10 @@ Overflow:
 						}
 						break;
 					case LBRA:
-						tlp->se.m[inst->u1.subid].s.sp = s;
+						tlp->se.m[inst->u1.subid].s = pos;
 						continue;
 					case RBRA:
-						tlp->se.m[inst->u1.subid].e.ep = s;
+						tlp->se.m[inst->u1.subid].e = pos;
 						continue;
 					case ANY:
 						if(r != '\n') {
@@ -192,6 +174,7 @@ Overflow:
 						if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
 							goto Overflow;
 						break;
+					/* TODO: make pattern ^$ work for matching empty lines */
 					case BOL:
 						if(pos == start || prevr == '\n')
 							continue;
@@ -225,15 +208,12 @@ Overflow:
 							savematch(mp, ms, &tlp->se);
 						break;
 				}
-
 				break;
 			} /* inner thread loop */
 		} /* outer thread loop */
 
 		if(pos == end)
 			break;
-
-		checkstart = startchar && nl->inst == 0;
 	} /* file read loop */
 
 	if(overflow) {
@@ -242,4 +222,34 @@ Overflow:
 	}
 
 	return match;
+
+Overflow:
+	if(++overflow == 1) {
+		tmp = calloc(DYNLEN, sizeof(Srelist));
+		memcpy(tmp, tl, tle - tl);
+		for(int i = 0; i < MAXSUBEXP; ++i)
+			tmp->se.m[i] = tl->se.m[i];
+		tl = tmp;
+
+		tmp = calloc(DYNLEN, sizeof(Srelist));
+		memcpy(tmp, nl, nle - nl);
+		for(int i = 0; i < MAXSUBEXP; ++i)
+			tmp->se.m[i] = nl->se.m[i];
+		nl = tmp;
+
+		tle = tl + DYNLEN - 2;
+		nle = nl + DYNLEN - 2;
+
+		goto Execloop;
+	}
+
+	/* if overflowed twice exit */
+	if(tl)
+		free(tl);
+	if(nl)
+		free(nl);
+
+	fprint(2, "sregexec: overflowed threadlist\n");
+
+	return -1;
 }

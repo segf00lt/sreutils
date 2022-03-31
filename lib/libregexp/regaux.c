@@ -80,7 +80,7 @@ _renewemptythread(Relist *lp,	/* _relist to add to */
 	p->inst = ip;
 	if(ms > 1) /* clear any submatches */
 		memset(&p->se, 0, sizeof(p->se));
-	p->se.m[0].s.sp = sp; /* reset beginning of match[0] to beginning of string */
+	p->se.m[0].s.sp = sp;
 	(++p)->inst = 0;
 	return p;
 }

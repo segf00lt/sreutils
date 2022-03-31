@@ -4,7 +4,7 @@ INCLUDEPATH = lib/include
 LINKPATH = lib/link
 
 all: lib
-	$(CC) $(CFLAGS) test.c -o test -I$(INCLUDEPATH) -L$(LINKPATH) -lbio -lregexp9 -lfmt -lutf
+	$(CC) $(CFLAGS) test.c sregexec.c -o test -I$(INCLUDEPATH) -L$(LINKPATH) -lbio -lregexp9 -lfmt -lutf
 
 lib:
 	cd lib; ./lib.sh; cd ..;
