@@ -4,8 +4,8 @@
 #define MAXSUBEXP 10
 
 typedef struct Sresub {
-	unsigned long s;
-	unsigned long e;
+	long s;
+	long e;
 } Sresub;
 
 typedef struct Sresublist {

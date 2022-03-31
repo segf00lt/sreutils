@@ -21,8 +21,3 @@ sregexec works as follows:
 
 expression to match a C function:
 ([A-Za-z_][A-Za-z_0-9]* ?)+[\n \t]+[A-Za-z_][A-Za-z_0-9]*\\((.*\n?)+\\)[\n \t]?{\n((\t.*\n)|^\n)+}
-
-TODO
-====
-
-- make ^$ work for empty line matching

@@ -100,9 +100,9 @@ sregexec(Reprog *progp,	/* regex prog to execute */
 
 	Sresublist sl; /* used for reinitializing submatches */
 
-	unsigned long start;
-	unsigned long end;
-	unsigned long pos;
+	long start;
+	long end;
+	long pos;
 
 	Rune r;
 	Rune prevr;
