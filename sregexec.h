@@ -3,19 +3,25 @@
 
 #define MAXSUBEXP 10
 
-typedef struct Sresub {
+typedef struct Sresub Sresub;
+
+struct Sresub {
 	long s;
-	long e;
-} Sresub;
+	long e; /* end is non inclusive */
+};
 
-typedef struct Sresublist {
+typedef struct Sresublist Sresublist;
+
+struct Sresublist {
 	Sresub m[MAXSUBEXP];
-} Sresublist;
+};
 
-typedef struct Srelist {
+typedef struct Srelist Srelist;
+
+struct Srelist {
 	Reinst *inst;
 	Sresublist se;
-} Srelist;
+};
 
 int sregexec(Reprog *progp, Biobuf *bp, Sresub *mp, int ms);
 

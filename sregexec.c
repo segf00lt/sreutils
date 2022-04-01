@@ -154,6 +154,7 @@ Execloop:
 				switch(inst->type) {
 					case RUNE:
 						if(inst->u1.r == r) {
+					Addthreadnext:
 							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
 								goto Overflow;
 						}
@@ -165,35 +166,31 @@ Execloop:
 						tlp->se.m[inst->u1.subid].e = pos;
 						continue;
 					case ANY:
-						if(r != '\n') {
-							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
-								goto Overflow;
-						}
+						if(r != '\n')
+							goto Addthreadnext;
 						break;
-					case ANYNL:
-						if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
-							goto Overflow;
+					case ANYNL: /* may remove support for this instruction */
+						goto Addthreadnext;
 						break;
-					/* TODO: make pattern ^$ work for matching empty lines */
 					case BOL:
 						if(pos == start || prevr == '\n')
 							continue;
 						break;
 					case EOL:
+						/* in order to be able to match empty lines
+						 * with ^$ EOL must consume a character
+						 * should we do that?
+						 */
 						if(pos == end || r == 0 || r == '\n')
-							continue;
+							goto Addthreadnext;
 						break;
 					case CCLASS:
-						if(inclass(r, inst->u1.cp)) {
-							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
-								goto Overflow;
-						}
+						if(inclass(r, inst->u1.cp))
+							goto Addthreadnext;
 						break;
 					case NCCLASS:
-						if(!inclass(r, inst->u1.cp)) {
-							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
-								goto Overflow;
-						}
+						if(!inclass(r, inst->u1.cp))
+							goto Addthreadnext;
 						break;
 					case OR:
 						/* evaluate right choice later */

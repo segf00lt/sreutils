@@ -21,3 +21,11 @@ sregexec works as follows:
 
 expression to match a C function:
 ([A-Za-z_][A-Za-z_0-9]* ?)+[\n \t]+[A-Za-z_][A-Za-z_0-9]*\\((.*\n?)+\\)[\n \t]?{\n((\t.*\n)|^\n)+}
+^([A-Za-z_][A-Za-z_0-9]* ?)+[\n \t]+[A-Za-z_][A-Za-z_0-9]*\\((.*\n*)+\\)[\n \t]*{$((\t.*\n)|^$)+}$
+
+3 programs:
+
+- rex, a grep like program for finding things in streams, name means ``regular expression extract``
+  or something like that (on an OS with my own userspace it would just be called grep).
+- pike, a stream editor with sam-like syntax, named after Rob Pike.
+- auk, an awk implementation that accepts structural regular expressions, named after the great Auk.

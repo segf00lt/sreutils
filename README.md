@@ -6,6 +6,6 @@ in mind.
 
 ## TODO
 
-- `sgrep` (need a better name)
+- `rex` (`grep` replacement)
 - `pike` (`sed` replacement with `sam` syntax)
 - `auk` (`awk` replacement)
