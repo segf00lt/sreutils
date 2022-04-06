@@ -3,10 +3,13 @@ CFLAGS = -Wall -Wpedantic -g
 INCLUDEPATH = lib/include
 LINKPATH = lib/link
 
-all: lib
+siv: lib
+	$(CC) $(CFLAGS) siv.c sregexec.c -o siv -I$(INCLUDEPATH) -L$(LINKPATH) -lbio -lregexp9 -lfmt -lutf
+
+test: lib
 	$(CC) $(CFLAGS) test.c sregexec.c -o test -I$(INCLUDEPATH) -L$(LINKPATH) -lbio -lregexp9 -lfmt -lutf
 
 lib:
 	cd lib; ./lib.sh; cd ..;
 
-.PHONY: all lib
+.PHONY: siv test lib

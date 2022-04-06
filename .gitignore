@@ -1,3 +1,5 @@
+siv
+stb_ds.h
 lib/include/*
 *.vim
 lib/link/*

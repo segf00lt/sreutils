@@ -104,8 +104,8 @@ sregexec(Reprog *progp,	/* regex prog to execute */
 	long end;
 	long pos;
 
-	Rune r;
-	Rune prevr;
+	Rune r = 0;
+	Rune prevr = 0;
 
 	if(mp && ms > 0) {
 		start = mp->s;
@@ -127,12 +127,12 @@ sregexec(Reprog *progp,	/* regex prog to execute */
 	Bseek(bp, start, 0); /* go to start */
 
 Execloop:
-	while((pos = Boffset(bp)) < end) {
+	while((pos = Boffset(bp)) <= end) {
 
 		prevr = r;
 		r = Bgetrune(bp);
 
-		if(startchar && nl->inst == 0 && startchar != r) /* skip to first character in progp */
+		if(startchar && nl->inst == 0 && startchar != r && pos != end) /* skip to first character in progp */
 			continue;
 
 		/* swap lists */
@@ -177,11 +177,7 @@ Execloop:
 							continue;
 						break;
 					case EOL:
-						/* in order to be able to match empty lines
-						 * with ^$ EOL must consume a character
-						 * should we do that?
-						 */
-						if(pos == end || r == 0 || r == '\n')
+						if((pos + runelen(r)) == end || r == 0 || r == '\n')
 							goto Addthreadnext;
 						break;
 					case CCLASS:
