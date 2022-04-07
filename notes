@@ -22,6 +22,9 @@ sregexec works as follows:
 expression to match a C function:
 ^([A-Za-z_][A-Za-z_*0-9]* ?)+[\n \t]+[A-Za-z_][A-Za-z_0-9]*\((.*\n*)+\)[\n \t]*{$((^\t+.*$)|(^$)|(^[A-Za-z_]+[A-Za-z_0-9]*:$))+}\n
 
+^([A-Za-z_][A-Za-z_*0-9]* ?)+\**[\n \t]+[A-Za-z_][A-Za-z_0-9]*\((.*\n*)+\)[\n \t]*{$((^\t+.*$)|(^$)|(^[A-Za-z_]+[A-Za-z_0-9]*:$))+}$
+
+
 3 programs:
 
 - siv, a grep like program for finding things in streams, name is sieve with no e's

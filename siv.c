@@ -33,6 +33,13 @@ typedef struct {
 	Sresubarr data[REMAX];
 } Yield;
 
+long
+Bgetrunepos(Biobuf *bp, long pos)
+{
+	Bseek(bp, pos, 0);
+	return Bgetrune(bp);
+}
+
 size_t
 Bfsize(Biobuf *bp)
 {
@@ -51,13 +58,24 @@ srextract(Reprog *progp,
 		size_t i) /* start index in arr */
 {
 	Sresub r = *range;
+	int flag = 0;
+	long l;
+
+	if(arr->c == 0) {
+		arr->c = 16;
+		arr->p = malloc(16 * sizeof(Sresub));
+	}
 
 	while(sregexec(progp, bp, &r, 1) > 0) {
 		if(i >= arr->c)
-			arr->p = realloc(arr->p, arr->c > 0 ? (arr->c *= 2) : (arr->c = 16) * sizeof(Sresub));
+			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
 
+		if(r.s == r.e && r.e <= range->e) /* prevent infinite loops on .* */
+			flag = 1;
+
+		l = runelen(Bgetrunepos(bp, r.e));
 		arr->p[i++] = r;
-		r.s = r.e;
+		r.s = r.e + l * flag;
 		r.e = range->e;
 	}
 
@@ -96,14 +114,6 @@ siv(Biobuf *bp,
 	}
 
 	return yp;
-}
-
-long
-Bgetrunepos(Biobuf *bp,
-	long pos)
-{
-	Bseek(bp, pos, 0);
-	return Bgetrune(bp);
 }
 
 char*
@@ -145,7 +155,6 @@ int
 main(int argc, char *argv[])
 {
 	escape(argv[1]);
-	print("%s\n", argv[1]);
 	Reprog *progarr[REMAX];
 	progarr[0] = regcomp(argv[1]);
 	Biobuf *bp = Bopen(argv[2], O_RDONLY);

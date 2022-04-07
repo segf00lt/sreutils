@@ -10,5 +10,4 @@ in mind.
 
 ## TODO
 
-- `.*` in `sregexec` is very buggy
 - write `siv`
