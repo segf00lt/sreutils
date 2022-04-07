@@ -33,3 +33,15 @@ expression to match a C function:
 
 
 In siv we'll store the Sresub's in a 2D
+
+
+
+
+
+
+
+For each expression given to siv, read through the file and find the matches
+for that expression, and store all these matches in a Sresubarr[]
+
+Then for each layer, starting from layer 1 (second layer), check if each Sresub is contained within
+an Sresub in the previous layer, and discard the Sresub's that aren't

@@ -82,36 +82,70 @@ srextract(Reprog *progp,
 	arr->l = i;
 }
 
+int
+contain(Sresub *s, Sresub *arr, size_t l)
+{
+	for(Sresub *p = arr; p - arr < l; ++p) {
+		if(s->s <= p->s && s->e >= p->e)
+			return 1;
+	}
+
+	return 0;
+}
+
+int
+belong(Sresub *s, Sresub *arr, size_t l)
+{
+	for(Sresub *p = arr; p - arr < l; ++p) {
+		if(s->s >= p->s && s->e <= p->e)
+			return 1;
+	}
+
+	return 0;
+}
+
 Yield*
 siv(Biobuf *bp,
 	Reprog *progarr[REMAX],
 	int n) /* number of regular expression */
 {
+	Yield y;
 	Yield *yp;
 	Sresub range;
-	Reprog *progp;
-	Sresubarr to;
-	Sresubarr from;
+	Sresubarr *cur;
+	Sresubarr *next;
+	Sresub *s;
+	int i, j, k;
 
-	yp = calloc(1, sizeof(Yield));
+	y = (Yield){0};
 	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
 
-	/* layer 0 */
-	srextract(progarr[0], bp, &range, &yp->data[0], 0);
+	for(i = 0; i < n; ++i) /* extract matches */
+		srextract(progarr[i], bp, &range, &y.data[i], 0);
 
-	/* remaining layers */
-	for(size_t i = 1; i < n; ++i) { /* to loop */
-		progp = progarr[i];
-		to = yp->data[i];
-		from = yp->data[i - 1];
+	for(i = 0; i < n - 1; ++i) { /* filter out non-nested matches */
+		cur = &y.data[i];
+		next = &y.data[i + 1];
 
-		for(size_t j = 0; j < from.l; ++j) { /* from loop */
-			range = from.p[j];
-			srextract(progp, bp, &range, &to, to.l);
+		for(j = 0, k = 0; j < cur->l; ++j) {
+			s = &cur->p[j];
+			cur->p[k] = *s;
+			if(contain(s, next->p, next->l))
+				++k;
 		}
+		cur->l = k;
 
-		yp->data[i] = to;
+		for(j = 0, k = 0; j < next->l; ++j) {
+			s = &next->p[j];
+			next->p[k] = *s;
+			if(belong(s, cur->p, cur->l))
+				++k;
+		}
+		next->l = k;
 	}
+
+	yp = malloc(sizeof(Yield));
+	memcpy(yp, &y, sizeof(Yield));
 
 	return yp;
 }
@@ -127,6 +161,14 @@ escape(char *s)
 		}
 
 		switch(s[i + 1]) {
+			case 'a':
+				s[j] = '\a';
+				++i;
+				break;
+			case 'b':
+				s[j] = '\b';
+				++i;
+				break;
 			case 't':
 				s[j] = '\t';
 				++i;
@@ -135,8 +177,20 @@ escape(char *s)
 				s[j] = '\n';
 				++i;
 				break;
+			case 'v':
+				s[j] = '\v';
+				++i;
+				break;
+			case 'f':
+				s[j] = '\f';
+				++i;
+				break;
 			case 'r':
 				s[j] = '\r';
+				++i;
+				break;
+			case '\\':
+				s[j] = '\\';
 				++i;
 				break;
 			default:
@@ -157,15 +211,19 @@ main(int argc, char *argv[])
 	escape(argv[1]);
 	Reprog *progarr[REMAX];
 	progarr[0] = regcomp(argv[1]);
-	Biobuf *bp = Bopen(argv[2], O_RDONLY);
-	Yield *yp = siv(bp, progarr, 1);
+	progarr[1] = regcomp(argv[2]);
+	Biobuf *bp = Bopen(argv[3], O_RDONLY);
+	Yield *yp = siv(bp, progarr, 2);
 	Sresubarr sarr = yp->data[0];
 	for(int i = 0; i < sarr.l; ++i) {
+		print("start = %li, end = %li\n", sarr.p[i].s, sarr.p[i].e);
 		for(long j = sarr.p[i].s; j < sarr.p[i].e; ++j)
 			print("%C", Bgetrunepos(bp, j));
 	}
 	free(progarr[0]);
+	free(progarr[1]);
 	free(sarr.p);
+	free(yp->data[1].p);
 	free(yp);
 	Bterm(bp);
 
