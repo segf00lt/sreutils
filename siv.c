@@ -4,6 +4,8 @@
  * multi-layer regular expression matching
  */
 
+/* TODO: add location and dir recursion */
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -17,21 +19,18 @@
 #include "sregexec.h"
 #include "siv.h"
 
-#define REMAX 10
+#define USAGE "usage: %s [-rlh] [-e expression] [-p [0-9]] [expression] [files...]\n"
 
-int recount = 0;
-
-typedef struct {
-	Sresub *p;
-	size_t l;
-	size_t c;
-} Sresubarr;
-
-typedef struct {
-	int fd;
-	char *name;
-	Sresubarr data[REMAX];
-} Yield;
+char *name;
+Biobuf *bp;
+Reprog *progarr[REMAX];
+Yield y;
+Sresubarr sarr;
+int fd;
+int t; /* target index TODO: change name */
+int n; /* number of expressions */
+int recur;
+int locat;
 
 long
 Bgetrunepos(Biobuf *bp, long pos)
@@ -174,101 +173,156 @@ filter(Sresubarr *p0, Sresubarr *p1, int(*fn)(Sresub *, Sresub *, size_t))
 	p0->l = k;
 }
 
-Yield*
+void
 siv(Biobuf *bp,
 	Reprog *progarr[REMAX],
+	Yield *yp,
 	int t, /* target layer */
 	int n) /* number of layers */
 {
-	Yield y;
-	Yield *yp;
+	/* TODO: remove dependency on Sresubarr */
 	Sresub range;
 	int i;
 
-	y = (Yield){0};
 	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
 
 	for(i = 0; i < n; ++i) /* extract matches */
-		srextract(progarr[i], bp, &range, &y.data[i], 0);
+		srextract(progarr[i], bp, &range, &yp->data[i], 0);
 
-	for(i = 1; i < n; ++i) /* rm ranges in y.data[i] that don't belong to a range in y.data[i - 1] */
-		filter(&y.data[i], &y.data[i - 1], belong);
+	for(i = 1; i < n; ++i) /* rm ranges in yp->data[i] that don't belong to a range in yp->data[i - 1] */
+		filter(&yp->data[i], &yp->data[i - 1], belong);
 
-	/* rm ranges in y.data[t] that don't contain a range in y.data[n - 1] */
-	filter(&y.data[t], &y.data[n - 1], contain);
+	/* rm ranges in yp->data[t] that don't contain a range in yp->data[n - 1] */
+	filter(&yp->data[t], &yp->data[n - 1], contain);
+}
 
-	yp = malloc(sizeof(Yield));
-	memcpy(yp, &y, sizeof(Yield));
+void
+cleanup(void) {
+	int i;
 
-	return yp;
+	for(i = 0; i < REMAX; ++i)
+		if(progarr[i])
+			free(progarr[i]);
+
+	for(i = 0; i < n; ++i)
+		free(y.data[i].p);
+
+	if(fd > 0)
+		close(fd);
+
+	free(bp);
 }
 
 int
 main(int argc, char *argv[])
 {
-	/* TODO: write argument parsing */
-	escape(argv[1]);
-	escape(argv[2]);
-	escape(argv[3]);
-	Reprog *progarr[REMAX];
-	progarr[0] = regcomp(argv[1]);
-	progarr[1] = regcomp(argv[2]);
-	progarr[2] = regcomp(argv[3]);
-	Biobuf *bp = Bopen(argv[4], O_RDONLY);
-	Yield *yp = siv(bp, progarr, 1, 3);
-	Sresubarr sarr = yp->data[1];
-	for(int i = 0; i < sarr.l; ++i) {
-		print("start = %li, end = %li\n", sarr.p[i].s, sarr.p[i].e);
-		for(long j = sarr.p[i].s; j < sarr.p[i].e; ++j)
-			print("%C", Bgetrunepos(bp, j));
+	name = argv[0];
+
+	if(argc == 1) {
+		fprint(2, "%s: no options given\n", name);
+		fprint(2, USAGE, name);
+		return 1;
 	}
-	print("%lu\n", sarr.l);
-	print("%lu\n", yp->data[1].l);
-	free(progarr[0]);
-	free(progarr[1]);
-	free(progarr[2]);
-	free(sarr.p);
-	free(yp->data[1].p);
-	free(yp->data[2].p);
-	free(yp);
-	Bterm(bp);
 
-	return 0;
+	bp = malloc(sizeof(Biobuf));
+	memset(progarr, 0, sizeof(Reprog*) * REMAX);
+	y = (Yield){0};
+	fd = 0;
+	t = -2;
+	n = 0;
+	recur = 0;
+	locat = 0;
 
-	/* parse arguments */
-	/*
 	size_t optind;
 	for(optind = 1; optind < argc && argv[optind][0] == '-'; ++optind) {
 		switch(argv[optind][1]) {
 			case 'e':
 				if(++optind == argc) {
-					fprint(2, "%s: '-e' requires an argument\n%s", progname);
+					fprint(2, "%s: '-e' requires an argument\n", name);
+					cleanup();
 					return 1;
 				}
 
-				if(recount >= 10) {
-					fprint(2, "%s: too many arguments to '-e'\n%s", progname);
+				if(n >= REMAX) {
+					fprint(2, "%s: too expressions given\n", name);
+					cleanup();
 					return 1;
 				}
 
-				re[recount++] = argv[optind];
+				progarr[n++] = regcomp(escape(argv[optind]));
 				break;
 			case 'r':
-				recurse = 1;
+				recur = 1;
 				break;
 			case 'l':
-				location = 1;
+				locat = 1;
 				break;
 			case 'p':
+				if(++optind == argc) {
+					fprint(2, "%s: '-p' requires an argument\n", name);
+					cleanup();
+					return 1;
+				}
+
+				t = atoi(argv[optind]);
 				break;
 			case 'h':
-				fprint(2, USAGE, progname);
+				fprint(2, USAGE, name);
+				cleanup();
 				return 1;
 			default:
-				fprint(2, "%s: unknown argument %s\n%s", progname, argv[optind], USAGE);
+				fprint(2, "%s: unknown option %s\n", name, argv[optind]);
+				fprint(2, USAGE, name);
+				cleanup();
 				return 1;
 		}
 	}
-	*/
-}
 
+	if(n == 0 && optind < argc)
+		progarr[n++] = regcomp(escape(argv[optind++]));
+
+	if(t < 0)
+		t += n > 1 ? n : 2;
+
+	if(t > n - 1) {
+		fprint(2, "%s: index %i out of range\n", name, t);
+		cleanup();
+		return 1;
+	}
+
+	if(optind == argc) {
+		Binit(bp, fd, O_RDONLY);
+		siv(bp, progarr, &y, t, n);
+		sarr = y.data[t];
+
+		for(int i = 0; i < sarr.l; ++i) {
+			for(long j = sarr.p[i].s; j < sarr.p[i].e; ++j)
+				print("%C", Bgetrunepos(bp, j));
+		}
+
+		cleanup();
+		return 0;
+	}
+
+	for(; optind < argc; ++optind) {
+		fd = open(argv[optind], O_RDONLY);
+
+		if(fd < 0) {
+			fprint(2, "%s: %s: no such file or directory\n", name, argv[optind]);
+			cleanup();
+			return 1;
+		}
+
+		Binit(bp, fd, O_RDONLY);
+		siv(bp, progarr, &y, t, n);
+		sarr = y.data[t];
+
+		for(int i = 0; i < sarr.l; ++i) {
+			for(long j = sarr.p[i].s; j < sarr.p[i].e; ++j)
+				print("%C", Bgetrunepos(bp, j));
+		}
+	}
+
+	cleanup();
+	return 0;
+}
