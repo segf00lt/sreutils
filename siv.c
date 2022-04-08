@@ -207,9 +207,6 @@ cleanup(void) {
 	for(i = 0; i < n; ++i)
 		free(y.data[i].p);
 
-	if(fd > 0)
-		close(fd);
-
 	free(bp);
 }
 
@@ -321,6 +318,8 @@ main(int argc, char *argv[])
 			for(long j = sarr.p[i].s; j < sarr.p[i].e; ++j)
 				print("%C", Bgetrunepos(bp, j));
 		}
+
+		close(fd);
 	}
 
 	cleanup();
