@@ -50,106 +50,6 @@ Bfsize(Biobuf *bp)
 	return s.st_size;
 }
 
-void
-srextract(Reprog *progp,
-		Biobuf *bp,
-		Sresub *range, /* range in bp */
-		Sresubarr *arr, /* match array */
-		size_t i) /* start index in arr */
-{
-	Sresub r = *range;
-	int flag = 0;
-	long l;
-
-	if(arr->c == 0) {
-		arr->c = 16;
-		arr->p = malloc(16 * sizeof(Sresub));
-	}
-
-	while(sregexec(progp, bp, &r, 1) > 0) {
-		if(i >= arr->c)
-			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
-
-		if(r.s == r.e && r.e <= range->e) /* prevent infinite loops on .* */
-			flag = 1;
-
-		l = runelen(Bgetrunepos(bp, r.e));
-		arr->p[i++] = r;
-		r.s = r.e + l * flag;
-		r.e = range->e;
-	}
-
-	arr->l = i;
-}
-
-int
-contain(Sresub *s, Sresub *arr, size_t l)
-{
-	for(Sresub *p = arr; p - arr < l; ++p) {
-		if(s->s <= p->s && s->e >= p->e)
-			return 1;
-	}
-
-	return 0;
-}
-
-int
-belong(Sresub *s, Sresub *arr, size_t l)
-{
-	for(Sresub *p = arr; p - arr < l; ++p) {
-		if(s->s >= p->s && s->e <= p->e)
-			return 1;
-	}
-
-	return 0;
-}
-
-Yield*
-siv(Biobuf *bp,
-	Reprog *progarr[REMAX],
-	int n) /* number of regular expression */
-{
-	Yield y;
-	Yield *yp;
-	Sresub range;
-	Sresubarr *cur;
-	Sresubarr *next;
-	Sresub *s;
-	int i, j, k;
-
-	y = (Yield){0};
-	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
-
-	for(i = 0; i < n; ++i) /* extract matches */
-		srextract(progarr[i], bp, &range, &y.data[i], 0);
-
-	for(i = 0; i < n - 1; ++i) { /* filter out non-nested matches */
-		cur = &y.data[i];
-		next = &y.data[i + 1];
-
-		for(j = 0, k = 0; j < cur->l; ++j) {
-			s = &cur->p[j];
-			cur->p[k] = *s;
-			if(contain(s, next->p, next->l))
-				++k;
-		}
-		cur->l = k;
-
-		for(j = 0, k = 0; j < next->l; ++j) {
-			s = &next->p[j];
-			next->p[k] = *s;
-			if(belong(s, cur->p, cur->l))
-				++k;
-		}
-		next->l = k;
-	}
-
-	yp = malloc(sizeof(Yield));
-	memcpy(yp, &y, sizeof(Yield));
-
-	return yp;
-}
-
 char*
 escape(char *s)
 {
@@ -205,25 +105,131 @@ escape(char *s)
 	return s;
 }
 
+void
+srextract(Reprog *progp,
+		Biobuf *bp,
+		Sresub *range, /* range in bp */
+		Sresubarr *arr, /* match array */
+		size_t i) /* start index in arr */
+{
+	Sresub r = *range;
+	int flag = 0;
+	long l;
+
+	if(arr->c == 0) {
+		arr->c = 16;
+		arr->p = malloc(16 * sizeof(Sresub));
+	}
+
+	while(sregexec(progp, bp, &r, 1) > 0) {
+		if(i >= arr->c)
+			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
+
+		if(r.s == r.e && r.e <= range->e) /* prevent infinite loops on .* */
+			flag = 1;
+
+		l = runelen(Bgetrunepos(bp, r.e));
+		arr->p[i++] = r;
+		r.s = r.e + l * flag;
+		r.e = range->e;
+	}
+
+	arr->l = i;
+}
+
+int
+contain(Sresub *s, Sresub *arr, size_t l)
+{
+	for(Sresub *p = arr; p - arr < l; ++p) {
+		if(s->s <= p->s && s->e >= p->e)
+			return 1;
+	}
+
+	return 0;
+}
+
+int
+belong(Sresub *s, Sresub *arr, size_t l)
+{
+	for(Sresub *p = arr; p - arr < l; ++p) {
+		if(s->s >= p->s && s->e <= p->e)
+			return 1;
+	}
+
+	return 0;
+}
+
+static inline void
+filter(Sresubarr *p0, Sresubarr *p1, int(*fn)(Sresub *, Sresub *, size_t))
+{
+	Sresub *s;
+	int j, k;
+
+	for(j = 0, k = 0; j < p0->l; ++j) {
+		s = &p0->p[j];
+		p0->p[k] = *s;
+		if(fn(s, p1->p, p1->l))
+			++k;
+	}
+	p0->l = k;
+}
+
+Yield*
+siv(Biobuf *bp,
+	Reprog *progarr[REMAX],
+	int t, /* target layer */
+	int n) /* number of layers */
+{
+	Yield y;
+	Yield *yp;
+	Sresub range;
+	int i;
+
+	y = (Yield){0};
+	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
+
+	for(i = 0; i < n; ++i) /* extract matches */
+		srextract(progarr[i], bp, &range, &y.data[i], 0);
+
+	for(i = 1; i < n; ++i) /* rm ranges in y.data[i] that don't belong to a range in y.data[i - 1] */
+		filter(&y.data[i], &y.data[i - 1], belong);
+
+	/* rm ranges in y.data[t] that don't contain a range in y.data[n - 1] */
+	filter(&y.data[t], &y.data[n - 1], contain);
+
+	yp = malloc(sizeof(Yield));
+	memcpy(yp, &y, sizeof(Yield));
+
+	return yp;
+}
+
 int
 main(int argc, char *argv[])
 {
+	/* TODO: write argument parsing */
 	escape(argv[1]);
+	escape(argv[2]);
+	escape(argv[3]);
 	Reprog *progarr[REMAX];
 	progarr[0] = regcomp(argv[1]);
 	progarr[1] = regcomp(argv[2]);
-	Biobuf *bp = Bopen(argv[3], O_RDONLY);
-	Yield *yp = siv(bp, progarr, 2);
-	Sresubarr sarr = yp->data[0];
+	progarr[2] = regcomp(argv[3]);
+	Biobuf *bp = Bopen(argv[4], O_RDONLY);
+	Yield *yp = siv(bp, progarr, 1, 3);
+	Sresubarr sarr = yp->data[1];
 	for(int i = 0; i < sarr.l; ++i) {
 		print("start = %li, end = %li\n", sarr.p[i].s, sarr.p[i].e);
 		for(long j = sarr.p[i].s; j < sarr.p[i].e; ++j)
 			print("%C", Bgetrunepos(bp, j));
 	}
+	print("%lu\n", sarr.l);
+	print("%lu\n", yp->data[1].l);
 	free(progarr[0]);
 	free(progarr[1]);
+	free(progarr[2]);
 	free(sarr.p);
 	free(yp->data[1].p);
+	free(yp->data[2].p);
 	free(yp);
 	Bterm(bp);
 
