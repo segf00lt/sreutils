@@ -9,7 +9,7 @@
 #include "sregexec.h"
 
 #define STATICLEN 11
-#define DYNLEN 301
+#define DYNLEN 151
 
 static int
 inclass(Rune r, /* character to match */
@@ -169,7 +169,7 @@ Execloop:
 						if(r != '\n')
 							goto Addthreadnext;
 						break;
-					case ANYNL: /* may remove support for this instruction */
+					case ANYNL:
 						goto Addthreadnext;
 						break;
 					case BOL:
@@ -194,12 +194,12 @@ Execloop:
 							goto Overflow;
 						/* efficiency: advance and re-evaluate */
 						continue;
-					case END:	/* Match! */
+					case END: /* Match! */
 						match = 1;
 						tlp->se.m[0].e = pos;
 						if(mp != 0)
 							savematch(mp, ms, &tlp->se);
-						break;
+						goto Return; /* non-greedy match makes multi-line exp simpler */
 				}
 				break;
 			} /* inner thread loop */
@@ -209,6 +209,7 @@ Execloop:
 			break;
 	} /* file read loop */
 
+Return:
 	if(overflow) {
 		free(tl);
 		free(nl);

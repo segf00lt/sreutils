@@ -197,7 +197,8 @@ siv(Biobuf *bp,
 }
 
 void
-cleanup(void) {
+cleanup(void)
+{
 	int i;
 
 	for(i = 0; i < REMAX; ++i)
@@ -246,7 +247,7 @@ main(int argc, char *argv[])
 					return 1;
 				}
 
-				progarr[n++] = regcomp(escape(argv[optind]));
+				progarr[n++] = regcompnl(escape(argv[optind]));
 				break;
 			case 'r':
 				recur = 1;
@@ -276,7 +277,7 @@ main(int argc, char *argv[])
 	}
 
 	if(n == 0 && optind < argc)
-		progarr[n++] = regcomp(escape(argv[optind++]));
+		progarr[n++] = regcompnl(escape(argv[optind++]));
 
 	if(t < 0)
 		t += n > 1 ? n : 2;

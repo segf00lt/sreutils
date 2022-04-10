@@ -26,6 +26,14 @@ expression to match a C function:
 
 ^([A-Za-z_][A-Za-z_*0-9]* ?)+\**[\n \t]+[A-Za-z_][A-Za-z_0-9]*\((.*\n*)+\)( /\*.*\*/)?[\n \t]+{$((^\t+.*$)|(^$)|(^[A-Za-z_]+[A-Za-z_0-9]*:$))+^}$
 
+
+Using lazy matching and allowing `.` to match newlines, we can reduce a
+function matching expression to the following:
+
+^([A-Za-z_][A-Za-z_*0-9]* ?)+\**[\n ]*[A-Za-z_][A-Za-z_0-9]*\(.+\).+{$.+^}$
+^([A-Za-z_][A-Za-z_*0-9]*[ \t]?)+\**[\n \t]*[A-Za-z_][A-Za-z_0-9]*\(([^)]+\n?)+\)([\n \t]*/\*.+\*/)?[\n \t]?{$.+^}$
+
+
 3 programs:
 
 - siv, a grep like program for finding things in streams, name is sieve with no e's
