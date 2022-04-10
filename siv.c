@@ -4,7 +4,7 @@
  * multi-layer regular expression matching
  */
 
-/* TODO: add location and dir recursion */
+/* TODO: add dir recursion */
 
 #include <stdlib.h>
 #include <string.h>
@@ -197,6 +197,29 @@ siv(Biobuf *bp,
 }
 
 void
+printyield(void)
+{
+	Sresubarr sarr;
+	Sresub *sp;
+	long r;
+	long pos;
+
+	sarr = y.data[t];
+	r = 0;
+
+	for(int i = 0; i < sarr.l; ++i) {
+		sp = &sarr.p[i];
+		Bseek(bp, sp->s, 0);
+
+		if(locat)
+			print("@@%s,%li,%li@@\n", y.name, sp->s, sp->e);
+
+		for(pos = sp->s; pos < sp->e; pos += runelen(r))
+			print("%C", (r = Bgetrune(bp)));
+	}
+}
+
+void
 cleanup(void)
 {
 	int i;
@@ -290,20 +313,16 @@ main(int argc, char *argv[])
 
 	if(optind == argc) {
 		Binit(bp, fd, O_RDONLY);
+		y.name = "<stdin>";
 		siv(bp, progarr, &y, t, n);
-		sarr = y.data[t];
-
-		for(int i = 0; i < sarr.l; ++i) {
-			for(long j = sarr.p[i].s; j < sarr.p[i].e; ++j)
-				print("%C", Bgetrunepos(bp, j));
-		}
-
+		printyield();
 		cleanup();
 		return 0;
 	}
 
 	for(; optind < argc; ++optind) {
 		fd = open(argv[optind], O_RDONLY);
+		y.name = argv[optind];
 
 		if(fd < 0) {
 			fprint(2, "%s: %s: no such file or directory\n", name, argv[optind]);
@@ -313,13 +332,7 @@ main(int argc, char *argv[])
 
 		Binit(bp, fd, O_RDONLY);
 		siv(bp, progarr, &y, t, n);
-		sarr = y.data[t];
-
-		for(int i = 0; i < sarr.l; ++i) {
-			for(long j = sarr.p[i].s; j < sarr.p[i].e; ++j)
-				print("%C", Bgetrunepos(bp, j));
-		}
-
+		printyield();
 		close(fd);
 	}
 
