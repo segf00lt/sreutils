@@ -31,13 +31,7 @@ int t; /* target index TODO: change name */
 int n; /* number of expressions */
 int recur;
 int locat;
-
-long
-Bgetrunepos(Biobuf *bp, long pos)
-{
-	Bseek(bp, pos, 0);
-	return Bgetrune(bp);
-}
+struct stat buf;
 
 size_t
 Bfsize(Biobuf *bp)
@@ -127,7 +121,8 @@ srextract(Reprog *progp,
 		if(r.s == r.e && r.e <= range->e) /* prevent infinite loops on .* */
 			flag = 1;
 
-		l = runelen(Bgetrunepos(bp, r.e));
+		Bungetrune(bp);
+		l = runelen(Bgetrune(bp));
 		arr->p[i++] = r;
 		r.s = r.e + l * flag;
 		r.e = range->e;
@@ -192,12 +187,12 @@ siv(Biobuf *bp,
 	for(i = 1; i < n; ++i) /* rm ranges in yp->data[i] that don't belong to a range in yp->data[i - 1] */
 		filter(&yp->data[i], &yp->data[i - 1], belong);
 
-	/* rm ranges in yp->data[t] that don't contain a range in yp->data[n - 1] */
-	filter(&yp->data[t], &yp->data[n - 1], contain);
+	if(t < n - 1) /* rm ranges in yp->data[t] that don't contain a range in yp->data[n - 1] */
+		filter(&yp->data[t], &yp->data[n - 1], contain);
 }
 
 void
-printyield(void)
+output(void)
 {
 	Sresubarr sarr;
 	Sresub *sp;
@@ -209,13 +204,19 @@ printyield(void)
 
 	for(int i = 0; i < sarr.l; ++i) {
 		sp = &sarr.p[i];
-		Bseek(bp, sp->s, 0);
 
 		if(locat)
-			print("@@%s,%li,%li@@\n", y.name, sp->s, sp->e);
+			print("@@ %s,%li,%li @@", y.name, sp->s, sp->e);
 
-		for(pos = sp->s; pos < sp->e; pos += runelen(r))
-			print("%C", (r = Bgetrune(bp)));
+		pos = sp->s;
+		Bseek(bp, pos, 0);
+
+		do {
+			r = Bgetrune(bp);
+			if(r > 0)
+				print("%C", r);
+			pos += runelen(r);
+		} while(pos < sp->e);
 	}
 }
 
@@ -315,14 +316,13 @@ main(int argc, char *argv[])
 		Binit(bp, fd, O_RDONLY);
 		y.name = "<stdin>";
 		siv(bp, progarr, &y, t, n);
-		printyield();
+		output();
 		cleanup();
 		return 0;
 	}
 
 	for(; optind < argc; ++optind) {
 		fd = open(argv[optind], O_RDONLY);
-		y.name = argv[optind];
 
 		if(fd < 0) {
 			fprint(2, "%s: %s: no such file or directory\n", name, argv[optind]);
@@ -330,9 +330,20 @@ main(int argc, char *argv[])
 			return 1;
 		}
 
+		fstat(fd, &buf);
+		if(S_ISDIR(buf.st_mode)) {
+			if(!recur) {
+				fprint(2, "%s: %s: is a directory\n", name, argv[optind]);
+				close(fd);
+				continue;
+			}
+
+		}
+
+		y.name = argv[optind];
 		Binit(bp, fd, O_RDONLY);
 		siv(bp, progarr, &y, t, n);
-		printyield();
+		output();
 		close(fd);
 	}
 
