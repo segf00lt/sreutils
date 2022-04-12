@@ -127,7 +127,6 @@ extract(Reprog *progp,
 		size_t i) /* start index in arr */
 {
 	Sresub r = *range;
-	int flag = 0;
 	long l;
 
 	if(arr->c == 0) {
@@ -139,13 +138,10 @@ extract(Reprog *progp,
 		if(i >= arr->c)
 			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
 
-		if(r.s == r.e && r.e <= range->e) /* prevent infinite loops on .* */
-			flag = 1;
-
 		Bungetrune(bp);
 		l = runelen(Bgetrune(bp));
 		arr->p[i++] = r;
-		r.s = r.e + l * flag;
+		r.s = r.e + l;
 		r.e = range->e;
 	}
 
@@ -179,8 +175,10 @@ siv(Biobuf *bp,
 			ap0->p[k] = *s;
 
 			for(p = ap1->p; p - ap1->p < ap1->l; ++p) {
-				if(s->s >= p->s && s->e <= p->e)
+				if(s->s >= p->s && s->e <= p->e) {
 					++k;
+					break;
+				}
 			}
 		}
 		ap0->l = k;
@@ -196,8 +194,10 @@ siv(Biobuf *bp,
 			ap0->p[k] = *s;
 
 			for(p = ap1->p; p - ap1->p < ap1->l; ++p) {
-				if(s->s <= p->s && s->e >= p->e)
+				if(s->s <= p->s && s->e >= p->e) {
 					++k;
+					break;
+				}
 			}
 		}
 		ap0->l = k;
