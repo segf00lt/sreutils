@@ -99,76 +99,6 @@ escape(char *s)
 }
 
 void
-srextract(Reprog *progp,
-		Biobuf *bp,
-		Sresub *range, /* range in bp */
-		Sresubarr *arr, /* match array */
-		size_t i) /* start index in arr */
-{
-	Sresub r = *range;
-	int flag = 0;
-	long l;
-
-	if(arr->c == 0) {
-		arr->c = 16;
-		arr->p = malloc(16 * sizeof(Sresub));
-	}
-
-	while(sregexec(progp, bp, &r, 1) > 0) {
-		if(i >= arr->c)
-			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
-
-		if(r.s == r.e && r.e <= range->e) /* prevent infinite loops on .* */
-			flag = 1;
-
-		Bungetrune(bp);
-		l = runelen(Bgetrune(bp));
-		arr->p[i++] = r;
-		r.s = r.e + l * flag;
-		r.e = range->e;
-	}
-
-	arr->l = i;
-}
-
-int
-contain(Sresub *s, Sresub *arr, size_t l)
-{
-	for(Sresub *p = arr; p - arr < l; ++p) {
-		if(s->s <= p->s && s->e >= p->e)
-			return 1;
-	}
-
-	return 0;
-}
-
-int
-belong(Sresub *s, Sresub *arr, size_t l)
-{
-	for(Sresub *p = arr; p - arr < l; ++p) {
-		if(s->s >= p->s && s->e <= p->e)
-			return 1;
-	}
-
-	return 0;
-}
-
-static inline void
-filter(Sresubarr *p0, Sresubarr *p1, int(*fn)(Sresub *, Sresub *, size_t))
-{
-	Sresub *s;
-	int j, k;
-
-	for(j = 0, k = 0; j < p0->l; ++j) {
-		s = &p0->p[j];
-		p0->p[k] = *s;
-		if(fn(s, p1->p, p1->l))
-			++k;
-	}
-	p0->l = k;
-}
-
-void
 siv(Biobuf *bp,
 	Reprog *progarr[REMAX],
 	Yield *yp,
@@ -176,19 +106,71 @@ siv(Biobuf *bp,
 	int n) /* number of layers */
 {
 	/* TODO: remove dependency on Sresubarr */
-	Sresub range;
-	int i;
+	Reprog *progp;
+	Sresub *s, *p;
+	Sresubarr *ap0, *ap1;
+	Sresub range, r;
+	long l; /* store length of utf sequence */
+	int i, j, k;
 
 	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
 
-	for(i = 0; i < n; ++i) /* extract matches */
-		srextract(progarr[i], bp, &range, &yp->data[i], 0);
+	/* extract matches */
+	for(i = 0; i < n; ++i) {
+		progp = progarr[i];
+		ap0 = &yp->data[i];
+		r = range;
 
-	for(i = 1; i < n; ++i) /* rm ranges in yp->data[i] that don't belong to a range in yp->data[i - 1] */
-		filter(&yp->data[i], &yp->data[i - 1], belong);
+		if(ap0->c == 0) {
+			ap0->c = 16;
+			ap0->p = malloc(16 * sizeof(Sresub));
+		}
 
-	if(t < n - 1) /* rm ranges in yp->data[t] that don't contain a range in yp->data[n - 1] */
-		filter(&yp->data[t], &yp->data[n - 1], contain);
+		while(sregexec(progp, bp, &r, 1) > 0) {
+			if(i >= ap0->c)
+				ap0->p = realloc(ap0->p, (ap0->c *= 2) * sizeof(Sresub));
+
+			Bungetrune(bp);
+			l = runelen(Bgetrune(bp));
+			ap0->p[i++] = r;
+			r.s = r.e + l; /* start next range 1 utf sequence after end of last range */
+			r.e = range.e;
+		}
+
+		ap0->l = i;
+	}
+
+	/* remove Sresub's in yp->data[i] that don't belong to an Sresub in yp->data[i - 1] */
+	for(i = 1; i < n; ++i) {
+		ap0 = &yp->data[i];
+		ap1 = &yp->data[i - 1];
+		for(j = 0, k = 0; j < ap0->l; ++j) {
+			s = &ap0->p[j];
+			ap0->p[k] = *s;
+
+			for(p = ap1->p; p - ap1->p < ap1->l; ++p) {
+				if(s->s >= p->s && s->e <= p->e)
+					++k;
+			}
+		}
+		ap0->l = k;
+	}
+
+	/* remove Sresub's in yp->data[t] that don't contain an Sresub in yp->data[n - 1] */
+	if(t < n - 1) {
+		ap0 = &yp->data[t];
+		ap1 = &yp->data[n - 1];
+		for(j = 0, k = 0; j < ap0->l; ++j) {
+			s = &ap0->p[j];
+			ap0->p[k] = *s;
+
+			for(p = ap1->p; p - ap1->p < ap1->l; ++p) {
+				if(s->s <= p->s && s->e >= p->e)
+					++k;
+			}
+		}
+		ap0->l = k;
+	}
 }
 
 void
