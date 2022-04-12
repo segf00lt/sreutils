@@ -30,7 +30,6 @@ typedef struct {
 } Sresubarr;
 
 typedef struct {
-	int fd;
 	char path[PATH_MAX + 1];
 	Sresubarr data[REMAX];
 } Yield;
@@ -38,7 +37,7 @@ typedef struct {
 typedef struct {
 	unsigned int l;
 	DIR *dp;
-} Rframe;
+} Rframe; /* recursion stack frame */
 
 char *name;
 Biobuf *bp;
@@ -121,6 +120,39 @@ escape(char *s)
 }
 
 void
+extract(Reprog *progp,
+		Biobuf *bp,
+		Sresub *range, /* range in bp */
+		Sresubarr *arr, /* match array */
+		size_t i) /* start index in arr */
+{
+	Sresub r = *range;
+	int flag = 0;
+	long l;
+
+	if(arr->c == 0) {
+		arr->c = 16;
+		arr->p = malloc(16 * sizeof(Sresub));
+	}
+
+	while(sregexec(progp, bp, &r, 1) > 0) {
+		if(i >= arr->c)
+			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
+
+		if(r.s == r.e && r.e <= range->e) /* prevent infinite loops on .* */
+			flag = 1;
+
+		Bungetrune(bp);
+		l = runelen(Bgetrune(bp));
+		arr->p[i++] = r;
+		r.s = r.e + l * flag;
+		r.e = range->e;
+	}
+
+	arr->l = i;
+}
+
+void
 siv(Biobuf *bp,
 	Reprog *progarr[REMAX],
 	Yield *yp,
@@ -128,42 +160,18 @@ siv(Biobuf *bp,
 	int n) /* number of layers */
 {
 	/* TODO: remove dependency on Sresubarr */
-	Reprog *progp;
 	Sresub *s, *p;
 	Sresubarr *ap0, *ap1;
-	Sresub range, r;
-	long l; /* store length of utf sequence */
-	int i, j, k;
+	Sresub range;
 
 	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
 
 	/* extract matches */
-	for(i = 0; i < n; ++i) {
-		progp = progarr[i];
-		ap0 = &yp->data[i];
-		r = range;
-
-		if(ap0->c == 0) {
-			ap0->c = 16;
-			ap0->p = malloc(16 * sizeof(Sresub));
-		}
-
-		while(sregexec(progp, bp, &r, 1) > 0) {
-			if(i >= ap0->c)
-				ap0->p = realloc(ap0->p, (ap0->c *= 2) * sizeof(Sresub));
-
-			Bungetrune(bp);
-			l = runelen(Bgetrune(bp));
-			ap0->p[i++] = r;
-			r.s = r.e + l; /* start next range 1 utf sequence after end of last range */
-			r.e = range.e;
-		}
-
-		ap0->l = i;
-	}
+	for(int i = 0; i < n; ++i)
+		extract(progarr[i], bp, &range, &yp->data[i], 0);
 
 	/* remove Sresub's in yp->data[i] that don't belong to an Sresub in yp->data[i - 1] */
-	for(i = 1; i < n; ++i) {
+	for(int i = 1, j, k; i < n; ++i) {
 		ap0 = &yp->data[i];
 		ap1 = &yp->data[i - 1];
 		for(j = 0, k = 0; j < ap0->l; ++j) {
@@ -182,6 +190,7 @@ siv(Biobuf *bp,
 	if(t < n - 1) {
 		ap0 = &yp->data[t];
 		ap1 = &yp->data[n - 1];
+		int j, k;
 		for(j = 0, k = 0; j < ap0->l; ++j) {
 			s = &ap0->p[j];
 			ap0->p[k] = *s;
