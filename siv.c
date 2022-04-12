@@ -4,12 +4,13 @@
  * multi-layer regular expression matching
  */
 
-/* TODO: add dir recursion */
-
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include <utf.h>
 #include <fmt.h>
@@ -17,15 +18,36 @@
 #include <bio.h>
 
 #include "sregexec.h"
-#include "siv.h"
 
 #define USAGE "usage: %s [-rlh] [-e expression] [-p [0-9]] [expression] [files...]\n"
+#define REMAX 10
+#define STATIC_DEPTH 16
+
+typedef struct {
+	Sresub *p;
+	size_t l;
+	size_t c;
+} Sresubarr;
+
+typedef struct {
+	int fd;
+	char path[PATH_MAX + 1];
+	Sresubarr data[REMAX];
+} Yield;
+
+typedef struct {
+	unsigned int l;
+	DIR *dp;
+} Rframe;
 
 char *name;
 Biobuf *bp;
 Reprog *progarr[REMAX];
 Yield y;
+Rframe stack[STATIC_DEPTH];
+int d;
 Sresubarr sarr;
+struct dirent *ent;
 int fd;
 int t; /* target index TODO: change name */
 int n; /* number of expressions */
@@ -188,7 +210,7 @@ output(void)
 		sp = &sarr.p[i];
 
 		if(locat)
-			print("@@ %s,%li,%li @@", y.name, sp->s, sp->e);
+			print("@@ %s,%li,%li @@", y.path, sp->s, sp->e);
 
 		pos = sp->s;
 		Bseek(bp, pos, 0);
@@ -296,7 +318,7 @@ main(int argc, char *argv[])
 
 	if(optind == argc) {
 		Binit(bp, fd, O_RDONLY);
-		y.name = "<stdin>";
+		strcpy(y.path, "<stdin>");
 		siv(bp, progarr, &y, t, n);
 		output();
 		cleanup();
@@ -312,6 +334,8 @@ main(int argc, char *argv[])
 			return 1;
 		}
 
+		strcpy(y.path, argv[optind]);
+
 		fstat(fd, &buf);
 		if(S_ISDIR(buf.st_mode)) {
 			if(!recur) {
@@ -320,9 +344,38 @@ main(int argc, char *argv[])
 				continue;
 			}
 
+			d = 0;
+			stack[d].l = strlen(y.path);
+			y.path[stack[d].l++] = '/';
+			stack[d].dp = fdopendir(fd);
+			while(d > -1) {
+				while((ent = readdir(stack[d].dp)) != NULL) {
+					if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
+						continue;
+
+					strcpy(y.path + stack[d].l, ent->d_name);
+
+					if(ent->d_type == DT_DIR) {
+						++d;
+						stack[d].l = stack[d - 1].l + strlen(ent->d_name);
+						stack[d].dp = opendir(y.path);
+						y.path[stack[d].l++] = '/';
+						continue;
+					}
+
+					fd = open(y.path, O_RDONLY);
+					Binit(bp, fd, O_RDONLY);
+					siv(bp, progarr, &y, t, n);
+					output();
+					close(fd);
+				}
+
+				closedir(stack[d--].dp);
+			}
+
+			continue;
 		}
 
-		y.name = argv[optind];
 		Binit(bp, fd, O_RDONLY);
 		siv(bp, progarr, &y, t, n);
 		output();

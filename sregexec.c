@@ -132,7 +132,8 @@ Execloop:
 		prevr = r;
 		r = Bgetrune(bp);
 
-		if(startchar && nl->inst == 0 && startchar != r && pos != end) /* skip to first character in progp */
+		/* skip to first character in progp */
+		if(startchar && nl->inst == 0 && startchar != r && pos != end)
 			continue;
 
 		/* swap lists */
