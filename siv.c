@@ -30,11 +30,6 @@ typedef struct {
 } Sresubarr;
 
 typedef struct {
-	char path[PATH_MAX + 1];
-	Sresubarr data[REMAX];
-} Yield;
-
-typedef struct {
 	unsigned int l;
 	DIR *dp;
 } Rframe; /* recursion stack frame */
@@ -42,7 +37,8 @@ typedef struct {
 char *name;
 Biobuf *bp;
 Reprog *progarr[REMAX];
-Yield y;
+char path[PATH_MAX + 1];
+Sresubarr data[REMAX];
 Rframe stack[STATIC_DEPTH];
 int d;
 Sresubarr sarr;
@@ -151,7 +147,7 @@ extract(Reprog *progp,
 void
 siv(Biobuf *bp,
 	Reprog *progarr[REMAX],
-	Yield *yp,
+	Sresubarr data[REMAX],
 	int t, /* target layer */
 	int n) /* number of layers */
 {
@@ -164,12 +160,12 @@ siv(Biobuf *bp,
 
 	/* extract matches */
 	for(int i = 0; i < n; ++i)
-		extract(progarr[i], bp, &range, &yp->data[i], 0);
+		extract(progarr[i], bp, &range, &data[i], 0);
 
 	/* remove Sresub's in yp->data[i] that don't belong to an Sresub in yp->data[i - 1] */
 	for(int i = 1, j, k; i < n; ++i) {
-		ap0 = &yp->data[i];
-		ap1 = &yp->data[i - 1];
+		ap0 = &data[i];
+		ap1 = &data[i - 1];
 		for(j = 0, k = 0; j < ap0->l; ++j) {
 			s = &ap0->p[j];
 			ap0->p[k] = *s;
@@ -186,8 +182,8 @@ siv(Biobuf *bp,
 
 	/* remove Sresub's in yp->data[t] that don't contain an Sresub in yp->data[n - 1] */
 	if(t < n - 1) {
-		ap0 = &yp->data[t];
-		ap1 = &yp->data[n - 1];
+		ap0 = &data[t];
+		ap1 = &data[n - 1];
 		int j, k;
 		for(j = 0, k = 0; j < ap0->l; ++j) {
 			s = &ap0->p[j];
@@ -212,14 +208,14 @@ output(void)
 	long r;
 	long pos;
 
-	sarr = y.data[t];
+	sarr = data[t];
 	r = 0;
 
 	for(int i = 0; i < sarr.l; ++i) {
 		sp = &sarr.p[i];
 
 		if(locat)
-			print("@@ %s,%li,%li @@", y.path, sp->s, sp->e);
+			print("@@ %s,%li,%li @@", path, sp->s, sp->e);
 
 		pos = sp->s;
 		Bseek(bp, pos, 0);
@@ -243,7 +239,7 @@ cleanup(void)
 			free(progarr[i]);
 
 	for(i = 0; i < n; ++i)
-		free(y.data[i].p);
+		free(data[i].p);
 
 	free(bp);
 }
@@ -261,7 +257,7 @@ main(int argc, char *argv[])
 
 	bp = malloc(sizeof(Biobuf));
 	memset(progarr, 0, sizeof(Reprog*) * REMAX);
-	y = (Yield){0};
+	memset(data, 0, sizeof(Sresubarr) * REMAX);
 	fd = 0;
 	t = -2;
 	n = 0;
@@ -327,8 +323,8 @@ main(int argc, char *argv[])
 
 	if(optind == argc) {
 		Binit(bp, fd, O_RDONLY);
-		strcpy(y.path, "<stdin>");
-		siv(bp, progarr, &y, t, n);
+		strcpy(path, "<stdin>");
+		siv(bp, progarr, data, t, n);
 		output();
 		cleanup();
 		return 0;
@@ -343,7 +339,7 @@ main(int argc, char *argv[])
 			return 1;
 		}
 
-		strcpy(y.path, argv[optind]);
+		strcpy(path, argv[optind]);
 
 		fstat(fd, &buf);
 		if(S_ISDIR(buf.st_mode)) {
@@ -354,27 +350,27 @@ main(int argc, char *argv[])
 			}
 
 			d = 0;
-			stack[d].l = strlen(y.path);
-			y.path[stack[d].l++] = '/';
+			stack[d].l = strlen(path);
+			path[stack[d].l++] = '/';
 			stack[d].dp = fdopendir(fd);
 			while(d > -1) {
 				while((ent = readdir(stack[d].dp)) != NULL) {
 					if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
 						continue;
 
-					strcpy(y.path + stack[d].l, ent->d_name);
+					strcpy(path + stack[d].l, ent->d_name);
 
 					if(ent->d_type == DT_DIR) {
 						++d;
 						stack[d].l = stack[d - 1].l + strlen(ent->d_name);
-						stack[d].dp = opendir(y.path);
-						y.path[stack[d].l++] = '/';
+						stack[d].dp = opendir(path);
+						path[stack[d].l++] = '/';
 						continue;
 					}
 
-					fd = open(y.path, O_RDONLY);
+					fd = open(path, O_RDONLY);
 					Binit(bp, fd, O_RDONLY);
-					siv(bp, progarr, &y, t, n);
+					siv(bp, progarr, data, t, n);
 					output();
 					close(fd);
 				}
@@ -386,7 +382,7 @@ main(int argc, char *argv[])
 		}
 
 		Binit(bp, fd, O_RDONLY);
-		siv(bp, progarr, &y, t, n);
+		siv(bp, progarr, data, t, n);
 		output();
 		close(fd);
 	}
