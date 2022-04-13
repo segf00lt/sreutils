@@ -21,7 +21,8 @@
 
 #define USAGE "usage: %s [-rlh] [-e expression] [-p [0-9]] [expression] [files...]\n"
 #define REMAX 10
-#define STATIC_DEPTH 16
+#define STATIC_DEPTH 32
+#define DYNAMIC_DEPTH 128
 
 typedef struct {
 	Sresub *p;
@@ -30,25 +31,27 @@ typedef struct {
 } Sresubarr;
 
 typedef struct {
-	unsigned int l;
+	char *cp;
 	DIR *dp;
 } Rframe; /* recursion stack frame */
 
 char *name;
+char path[PATH_MAX + 1];
 Biobuf *bp;
 Reprog *progarr[REMAX];
-char path[PATH_MAX + 1];
 Sresubarr data[REMAX];
-Rframe stack[STATIC_DEPTH];
-int d;
 Sresubarr sarr;
+Rframe sstack[STATIC_DEPTH];
+Rframe *dstack;
+Rframe *stack;
 struct dirent *ent;
+struct stat buf;
+int d; /* depth in directory recursion stack */
 int fd;
 int t; /* target index TODO: change name */
 int n; /* number of expressions */
 int recur;
 int locat;
-struct stat buf;
 
 size_t
 Bfsize(Biobuf *bp)
@@ -234,15 +237,19 @@ cleanup(void)
 {
 	int i;
 
-	for(i = 0; i < REMAX; ++i)
-		if(progarr[i])
-			free(progarr[i]);
+	for(i = 0; i < n; ++i)
+		free(progarr[i]);
 
 	for(i = 0; i < n; ++i)
 		free(data[i].p);
 
+	if(dstack)
+		free(dstack);
+
 	free(bp);
 }
+
+/* TODO: find what causes Boffset: unkown state 0 when run on ~/Documents/projects */
 
 int
 main(int argc, char *argv[])
@@ -258,6 +265,8 @@ main(int argc, char *argv[])
 	bp = malloc(sizeof(Biobuf));
 	memset(progarr, 0, sizeof(Reprog*) * REMAX);
 	memset(data, 0, sizeof(Sresubarr) * REMAX);
+	stack = sstack;
+	dstack = 0;
 	fd = 0;
 	t = -2;
 	n = 0;
@@ -350,21 +359,27 @@ main(int argc, char *argv[])
 			}
 
 			d = 0;
-			stack[d].l = strlen(path);
-			path[stack[d].l++] = '/';
+			stack[d].cp = path + strlen(path);
+			*(stack[d].cp++) = '/';
 			stack[d].dp = fdopendir(fd);
 			while(d > -1) {
 				while((ent = readdir(stack[d].dp)) != NULL) {
 					if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
 						continue;
 
-					strcpy(path + stack[d].l, ent->d_name);
+					strcpy(stack[d].cp, ent->d_name);
 
 					if(ent->d_type == DT_DIR) {
 						++d;
-						stack[d].l = stack[d - 1].l + strlen(ent->d_name);
+						if(dstack == 0 && d >= STATIC_DEPTH) {
+							dstack = malloc(DYNAMIC_DEPTH * sizeof(Rframe));
+							memcpy(dstack, sstack, STATIC_DEPTH * sizeof(Rframe));
+							stack = dstack;
+						}
+
+						stack[d].cp = stack[d - 1].cp + strlen(ent->d_name);
 						stack[d].dp = opendir(path);
-						path[stack[d].l++] = '/';
+						*(stack[d].cp++) = '/';
 						continue;
 					}
 
