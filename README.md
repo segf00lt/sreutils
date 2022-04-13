@@ -18,6 +18,7 @@ in mind.
 
 ## TODO
 
+- add greedy and non-greedy matches to regexp
 - tweak and improve `siv`
 - write `pike`
 - write `auk`

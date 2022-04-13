@@ -127,6 +127,7 @@ extract(Reprog *progp,
 {
 	Sresub r = *range;
 	long l;
+	int flag = 0;
 
 	if(arr->c == 0) {
 		arr->c = 16;
@@ -137,10 +138,13 @@ extract(Reprog *progp,
 		if(i >= arr->c)
 			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
 
+		if(r.s == r.e && r.e <= range->e)
+			flag = 1;
+
 		Bungetrune(bp);
 		l = runelen(Bgetrune(bp));
 		arr->p[i++] = r;
-		r.s = r.e + l;
+		r.s = r.e + l * flag;
 		r.e = range->e;
 	}
 
@@ -165,7 +169,7 @@ siv(Biobuf *bp,
 	for(int i = 0; i < n; ++i)
 		extract(progarr[i], bp, &range, &data[i], 0);
 
-	/* remove Sresub's in yp->data[i] that don't belong to an Sresub in yp->data[i - 1] */
+	/* remove Sresub's in data[i] that don't belong to an Sresub in data[i - 1] */
 	for(int i = 1, j, k; i < n; ++i) {
 		ap0 = &data[i];
 		ap1 = &data[i - 1];
@@ -183,7 +187,7 @@ siv(Biobuf *bp,
 		ap0->l = k;
 	}
 
-	/* remove Sresub's in yp->data[t] that don't contain an Sresub in yp->data[n - 1] */
+	/* remove Sresub's in data[t] that don't contain an Sresub in data[n - 1] */
 	if(t < n - 1) {
 		ap0 = &data[t];
 		ap1 = &data[n - 1];
@@ -360,7 +364,8 @@ main(int argc, char *argv[])
 
 			d = 0;
 			stack[d].cp = path + strlen(path);
-			*(stack[d].cp++) = '/';
+			if(*(stack[d].cp - 1) != '/')
+				*(stack[d].cp++) = '/';
 			stack[d].dp = fdopendir(fd);
 			while(d > -1) {
 				while((ent = readdir(stack[d].dp)) != NULL) {
@@ -383,11 +388,13 @@ main(int argc, char *argv[])
 						continue;
 					}
 
-					fd = open(path, O_RDONLY);
-					Binit(bp, fd, O_RDONLY);
-					siv(bp, progarr, data, t, n);
-					output();
-					close(fd);
+					if(ent->d_type == DT_REG) {
+						fd = open(path, O_RDONLY);
+						Binit(bp, fd, O_RDONLY);
+						siv(bp, progarr, data, t, n);
+						output();
+						close(fd);
+					}
 				}
 
 				closedir(stack[d--].dp);
