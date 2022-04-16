@@ -9,8 +9,7 @@ enum
 static	Biobuf*	wbufs[MAXBUFS];
 static	int		atexitflag;
 
-static
-void
+static void
 batexit(void)
 {
 	Biobuf *bp;
@@ -25,8 +24,7 @@ batexit(void)
 	}
 }
 
-static
-void
+static void
 deinstall(Biobuf *bp)
 {
 	int i;
@@ -36,8 +34,7 @@ deinstall(Biobuf *bp)
 			wbufs[i] = 0;
 }
 
-static
-void
+static void
 install(Biobuf *bp)
 {
 	int i;

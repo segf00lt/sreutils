@@ -152,7 +152,7 @@ extract(Reprog *progp,
 }
 
 void
-siv(Biobuf *bp,
+siv1(Biobuf *bp,
 	Reprog *progarr[REMAX],
 	Sresubarr data[REMAX],
 	int t, /* target layer */
@@ -206,6 +206,54 @@ siv(Biobuf *bp,
 		ap0->l = k;
 	}
 }
+
+void
+siv2(Biobuf *bp,
+	Reprog *progarr[REMAX],
+	Sresubarr data[REMAX],
+	int t, /* target layer */
+	int n) /* number of layers */
+{
+	Sresubarr *ap0, *ap1;
+	Sresub *r0, *r1, *w0, *w1, *e0, *e1;
+	Sresub range;
+
+	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
+
+	/* extract matches */
+	for(int i = 0; i < n; ++i)
+		extract(progarr[i], bp, &range, &data[i], 0);
+
+	for(int i = 1; i < n; ++i) {
+		ap0 = &data[i - 1];
+		ap1 = &data[i];
+		r0 = w0 = ap0->p;
+		r1 = w1 = ap1->p;
+		e0 = ap0->p + ap0->l;
+		e1 = ap1->p + ap1->l;
+
+		while(r1 < e1 && r0 < e0) {
+			if(r1->s > r0->e) {
+				++r0;
+				continue;
+			} else if(r1->s < r0->s || r1->e > r0->e) {
+				++r1;
+				continue;
+			}
+
+			while(r1 < e1 && r1->e <= r0->e)
+				*(w1++) = *(r1++);
+
+			*(w0++) = *(r0++);
+		}
+
+		ap0->l = w0 - ap0->p;
+		ap1->l = w1 - ap1->p;
+	}
+}
+
+/* TODO: need a good profiler to test speed */
+void (*siv)(Biobuf *, Reprog *[REMAX], Sresubarr [REMAX], int, int) = siv2;
 
 void
 output(void)
