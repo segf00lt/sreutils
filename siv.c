@@ -151,7 +151,7 @@ extract(Reprog *progp,
 	arr->l = i;
 }
 
-void
+int
 siv1(Biobuf *bp,
 	Reprog *progarr[REMAX],
 	Sresubarr data[REMAX],
@@ -166,8 +166,11 @@ siv1(Biobuf *bp,
 	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
 
 	/* extract matches */
-	for(int i = 0; i < n; ++i)
+	for(int i = 0; i < n; ++i) {
 		extract(progarr[i], bp, &range, &data[i], 0);
+		if(data[i].l == 0)
+			return 0;
+	}
 
 	/* remove Sresub's in data[i] that don't belong to an Sresub in data[i - 1] */
 	for(int i = 1, j, k; i < n; ++i) {
@@ -205,9 +208,11 @@ siv1(Biobuf *bp,
 		}
 		ap0->l = k;
 	}
+
+	return 1;
 }
 
-void
+int
 siv2(Biobuf *bp,
 	Reprog *progarr[REMAX],
 	Sresubarr data[REMAX],
@@ -221,8 +226,11 @@ siv2(Biobuf *bp,
 	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
 
 	/* extract matches */
-	for(int i = 0; i < n; ++i)
+	for(int i = 0; i < n; ++i) {
 		extract(progarr[i], bp, &range, &data[i], 0);
+		if(data[i].l == 0)
+			return 0;
+	}
 
 	for(int i = 1; i < n; ++i) {
 		ap0 = &data[i - 1];
@@ -250,10 +258,12 @@ siv2(Biobuf *bp,
 		ap0->l = w0 - ap0->p;
 		ap1->l = w1 - ap1->p;
 	}
+
+	return 1;
 }
 
 /* TODO: need a good profiler to test speed */
-void (*siv)(Biobuf *, Reprog *[REMAX], Sresubarr [REMAX], int, int) = siv2;
+int (*siv)(Biobuf *, Reprog *[REMAX], Sresubarr [REMAX], int, int) = siv2;
 
 void
 output(void)
@@ -439,7 +449,8 @@ main(int argc, char *argv[])
 					if(ent->d_type == DT_REG) {
 						fd = open(path, O_RDONLY);
 						Binit(bp, fd, O_RDONLY);
-						siv(bp, progarr, data, t, n);
+						if(!siv(bp, progarr, data, t, n))
+							continue;
 						output();
 						close(fd);
 					}
@@ -452,7 +463,8 @@ main(int argc, char *argv[])
 		}
 
 		Binit(bp, fd, O_RDONLY);
-		siv(bp, progarr, data, t, n);
+		if(!siv(bp, progarr, data, t, n))
+			continue;
 		output();
 		close(fd);
 	}

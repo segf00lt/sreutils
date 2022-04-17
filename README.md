@@ -4,6 +4,8 @@ The UNIX holy trinity, redesigned with Rob Pike's
 [structural regular expressions](http://doc.cat-v.org/bell_labs/structural_regexps/)
 in mind.
 
+## Programs
+
 ### siv
 
 `grep` like program (Multi-layer regular expression matching).
