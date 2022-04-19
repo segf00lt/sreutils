@@ -54,3 +54,11 @@ for that expression, and store all these matches in a Sresubarr[]
 
 Then for each layer, starting from layer 1 (second layer), check if each Sresub is contained within
 an Sresub in the previous layer, and discard the Sresub's that aren't
+
+
+
+
+Adding a check for successful extract() in siv() makes searching through files with few matches
+approximately 75% faster.
+
+The new algorithm for siv() should be faster in cases where there are lots of matches. *Need to test*

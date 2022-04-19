@@ -151,72 +151,11 @@ extract(Reprog *progp,
 	arr->l = i;
 }
 
+/* TODO: need a good profiler to test speed */
 int
-siv1(Biobuf *bp,
+siv(Biobuf *bp,
 	Reprog *progarr[REMAX],
 	Sresubarr data[REMAX],
-	int t, /* target layer */
-	int n) /* number of layers */
-{
-	/* TODO: remove dependency on Sresubarr */
-	Sresub *s, *p;
-	Sresubarr *ap0, *ap1;
-	Sresub range;
-
-	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
-
-	/* extract matches */
-	for(int i = 0; i < n; ++i) {
-		extract(progarr[i], bp, &range, &data[i], 0);
-		if(data[i].l == 0)
-			return 0;
-	}
-
-	/* remove Sresub's in data[i] that don't belong to an Sresub in data[i - 1] */
-	for(int i = 1, j, k; i < n; ++i) {
-		ap0 = &data[i];
-		ap1 = &data[i - 1];
-		for(j = 0, k = 0; j < ap0->l; ++j) {
-			s = &ap0->p[j];
-			ap0->p[k] = *s;
-
-			for(p = ap1->p; p - ap1->p < ap1->l; ++p) {
-				if(s->s >= p->s && s->e <= p->e) {
-					++k;
-					break;
-				}
-			}
-		}
-		ap0->l = k;
-	}
-
-	/* remove Sresub's in data[t] that don't contain an Sresub in data[n - 1] */
-	if(t < n - 1) {
-		ap0 = &data[t];
-		ap1 = &data[n - 1];
-		int j, k;
-		for(j = 0, k = 0; j < ap0->l; ++j) {
-			s = &ap0->p[j];
-			ap0->p[k] = *s;
-
-			for(p = ap1->p; p - ap1->p < ap1->l; ++p) {
-				if(s->s <= p->s && s->e >= p->e) {
-					++k;
-					break;
-				}
-			}
-		}
-		ap0->l = k;
-	}
-
-	return 1;
-}
-
-int
-siv2(Biobuf *bp,
-	Reprog *progarr[REMAX],
-	Sresubarr data[REMAX],
-	int t, /* target layer */
 	int n) /* number of layers */
 {
 	Sresubarr *ap0, *ap1;
@@ -261,9 +200,6 @@ siv2(Biobuf *bp,
 
 	return 1;
 }
-
-/* TODO: need a good profiler to test speed */
-int (*siv)(Biobuf *, Reprog *[REMAX], Sresubarr [REMAX], int, int) = siv2;
 
 void
 output(void)
@@ -311,8 +247,6 @@ cleanup(void)
 	free(bp);
 }
 
-/* TODO: find what causes Boffset: unkown state 0 when run on ~/Documents/projects */
-
 int
 main(int argc, char *argv[])
 {
@@ -325,8 +259,6 @@ main(int argc, char *argv[])
 	}
 
 	bp = malloc(sizeof(Biobuf));
-	memset(progarr, 0, sizeof(Reprog*) * REMAX);
-	memset(data, 0, sizeof(Sresubarr) * REMAX);
 	stack = sstack;
 	dstack = 0;
 	fd = 0;
@@ -392,11 +324,12 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
+	/* TODO: reading stdin from pipes doesn't work */
 	if(optind == argc) {
-		Binit(bp, fd, O_RDONLY);
+		Binit(bp, 0, O_RDONLY);
 		strcpy(path, "<stdin>");
-		siv(bp, progarr, data, t, n);
-		output();
+		if(siv(bp, progarr, data, n))
+			output();
 		cleanup();
 		return 0;
 	}
@@ -449,9 +382,8 @@ main(int argc, char *argv[])
 					if(ent->d_type == DT_REG) {
 						fd = open(path, O_RDONLY);
 						Binit(bp, fd, O_RDONLY);
-						if(!siv(bp, progarr, data, t, n))
-							continue;
-						output();
+						if(siv(bp, progarr, data, n))
+							output();
 						close(fd);
 					}
 				}
@@ -463,9 +395,8 @@ main(int argc, char *argv[])
 		}
 
 		Binit(bp, fd, O_RDONLY);
-		if(!siv(bp, progarr, data, t, n))
-			continue;
-		output();
+		if(siv(bp, progarr, data, n))
+			output();
 		close(fd);
 	}
 
