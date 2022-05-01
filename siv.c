@@ -48,19 +48,17 @@ struct dirent *ent;
 struct stat buf;
 int d; /* depth in directory recursion stack */
 int fd;
-int t; /* target index TODO: change name */
+int t; /* target index TODO change name */
 int n; /* number of expressions */
 int recur;
 int locat;
 
-size_t
+long
 Bfsize(Biobuf *bp)
 {
-	int fd = Bfildes(bp);
-	struct stat s;
-
-	fstat(fd, &s);
-	return s.st_size;
+	long s = Bseek(bp, 0, SEEK_END);
+	Bseek(bp, 0, SEEK_SET);
+	return s;
 }
 
 char*
@@ -151,7 +149,7 @@ extract(Reprog *progp,
 	arr->l = i;
 }
 
-/* TODO: need a good profiler to test speed */
+/* TODO need a good profiler to test speed */
 int
 siv(Biobuf *bp,
 	Reprog *progarr[REMAX],
@@ -324,7 +322,13 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	/* TODO: reading stdin from pipes doesn't work */
+	/* TODO
+	 * reading stdin from pipes doesn't work
+	 *
+	 * SOLUTION
+	 * refactor to account for inability to seek through
+	 * pipes
+	 */
 	if(optind == argc) {
 		Binit(bp, 0, O_RDONLY);
 		strcpy(path, "<stdin>");
