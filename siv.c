@@ -15,32 +15,42 @@
 #include <utf.h>
 #include <fmt.h>
 #include <regexp9.h>
+#include <regcomp.h>
 #include <bio.h>
-
-#include "sregexec.h"
 
 #define USAGE "usage: %s [-rlh] [-e expression] [-p [0-9]] [expression] [files...]\n"
 #define REMAX 10
 #define STATIC_DEPTH 32
 #define DYNAMIC_DEPTH 128
 
-typedef struct {
-	Sresub *p;
-	size_t l;
-	size_t c;
-} Sresubarr;
+typedef struct Sivmatch Sivmatch;
+struct Sivmatch {
+	char *data, *p;
+	size_t cap;
+	long s;
+	long e;
+};
 
 typedef struct {
 	char *cp;
 	DIR *dp;
 } Rframe; /* recursion stack frame */
 
+char* escape(char *s);
+static int inclass(Rune r, Reclass* c);
+static Relist* addthread(Relist *lp, Reinst *ip, Resublist *sub);
+Rune fromfile(void);
+Rune frommatch(void);
+void siv(Biobuf *bp, Reprog *progarr[REMAX]);
+void cleanup(void);
+
 char *name;
 char path[PATH_MAX + 1];
 Biobuf *bp;
+Biobuf outbuf; /* stdout buffer */
 Reprog *progarr[REMAX];
-Sresubarr data[REMAX];
-Sresubarr sarr;
+Sivmatch match;
+Sivmatch target;
 Rframe sstack[STATIC_DEPTH];
 Rframe *dstack;
 Rframe *stack;
@@ -52,14 +62,6 @@ int t; /* target index TODO change name */
 int n; /* number of expressions */
 int recur;
 int locat;
-
-long
-Bfsize(Biobuf *bp)
-{
-	long s = Bseek(bp, 0, SEEK_END);
-	Bseek(bp, 0, SEEK_SET);
-	return s;
-}
 
 char*
 escape(char *s)
@@ -116,115 +118,260 @@ escape(char *s)
 	return s;
 }
 
-void
-extract(Reprog *progp,
-		Biobuf *bp,
-		Sresub *range, /* range in bp */
-		Sresubarr *arr, /* match array */
-		size_t i) /* start index in arr */
+#define _STATICLEN 11
+#define _DYNLEN 151
+#define _MINMATCH 32
+
+static int
+inclass(Rune r, /* character to match */
+	Reclass* c) /* character class */
 {
-	Sresub r = *range;
-	long l;
-	int flag = 0;
+	Rune *rp = c->spans;
+	Rune *ep = c->end;
 
-	if(arr->c == 0) {
-		arr->c = 16;
-		arr->p = malloc(16 * sizeof(Sresub));
+	for(; rp < ep; rp += 2) {
+		if(r >= rp[0] && r <= rp[1])
+			return 1;
 	}
 
-	while(sregexec(progp, bp, &r, 1) > 0) {
-		if(i >= arr->c)
-			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
-
-		if(r.s == r.e && r.e <= range->e)
-			flag = 1;
-
-		Bungetrune(bp);
-		l = runelen(Bgetrune(bp));
-		arr->p[i++] = r;
-		r.s = r.e + l * flag;
-		r.e = range->e;
-	}
-
-	arr->l = i;
+	return 0;
 }
 
-/* TODO need a good profiler to test speed */
-int
-siv(Biobuf *bp,
-	Reprog *progarr[REMAX],
-	Sresubarr data[REMAX],
-	int n) /* number of layers */
+/*
+ * Note optimization in addthread (taken from _renewthread):
+ * 	*lp must be pending when _renewthread called; if *l has been looked
+ *		at already, the optimization is a bug.
+ */
+static Relist*
+addthread(Relist *lp,	/* list to add to */
+	Reinst *ip,	/* instruction to add */
+	Resublist *sub)/* subexpressions */
 {
-	Sresubarr *ap0, *ap1;
-	Sresub *r0, *r1, *w0, *w1, *e0, *e1;
-	Sresub range;
+	Relist *p;
 
-	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
-
-	/* extract matches */
-	for(int i = 0; i < n; ++i) {
-		extract(progarr[i], bp, &range, &data[i], 0);
-		if(data[i].l == 0)
+	for(p = lp; p->inst; ++p) {
+		if(p->inst == ip) {
+			//if(sub->m[0].s < p->se.m[0].s)
+			//	p->se = *sub;
 			return 0;
+		}
 	}
+	p->inst = ip;
+	p->se = *sub;
+	(++p)->inst = 0;
+	return p;
+}
 
-	for(int i = 1; i < n; ++i) {
-		ap0 = &data[i - 1];
-		ap1 = &data[i];
-		r0 = w0 = ap0->p;
-		r1 = w1 = ap1->p;
-		e0 = ap0->p + ap0->l;
-		e1 = ap1->p + ap1->l;
+int
+extract(Reprog *progp,	/* regex prog to execute */
+	Sivmatch *mp,
+	Rune (*nextsym)(void))
+{
+	Relist threadlist0[_STATICLEN], threadlist1[_STATICLEN];
+	threadlist0[0].inst = threadlist1[0].inst = 0;
+	//Resub subexp[9];
 
-		while(r1 < e1 && r0 < e0) {
-			if(r1->s > r0->e) {
-				++r0;
-				continue;
-			} else if(r1->s < r0->s || r1->e > r0->e) {
-				++r1;
-				continue;
-			}
+	Relist *tl = threadlist0;
+	Relist *nl = threadlist1;
+	Relist *tle = threadlist0 + _STATICLEN - 2;
+	Relist *nle = threadlist1 + _STATICLEN - 2;
+	Relist *tmp = 0;
 
-			while(r1 < e1 && r1->e <= r0->e)
-				*(w1++) = *(r1++);
+	Relist *tlp;
+	Reinst *inst;
 
-			*(w0++) = *(r0++);
+	Resublist sl;
+
+	long initial = mp->e;
+	long pos = initial;
+	size_t len;
+
+	Rune r = 0;
+	Rune prevr = 0;
+	int rl;
+
+	int starttype = progp->startinst->type;
+	Rune startchar = starttype == RUNE ? progp->startinst->u1.r : 0;
+
+	int overflow = 0; /* counts number of times tl and/or nl's capacity is reached */
+	int ret = 0;
+
+Execloop:
+	for(; r != Beof; rl = runelen(r), pos += rl, mp->p += rl) {
+
+		prevr = r;
+		r = nextsym();
+
+		/* skip to first character in progp */
+		if(startchar && (nl->inst == 0) && (startchar != r))
+			continue;
+
+		/* swap lists */
+		tmp = tl;
+		tl = nl;
+		nl = tmp;
+		tmp = tle;
+		tle = nle;
+		nle = tmp;
+		nl->inst = 0;
+
+		if(tl->inst == 0) { /* restart until progress is made or match is found */
+			mp->p = mp->data;
+			mp->s = pos;
+			addthread(tl, progp->startinst, &sl);
 		}
 
-		ap0->l = w0 - ap0->p;
-		ap1->l = w1 - ap1->p;
+		for(tlp = tl; tlp->inst; ++tlp) {
+			for(inst = tlp->inst; ; inst = inst->u2.next) {
+				switch(inst->type) {
+					case RUNE:
+						if(inst->u1.r == r) {
+					Saveandstep:
+							len = mp->p - mp->data;
+							if(len >= mp->cap) {
+								mp->data = realloc(mp->data, (mp->cap *= 2));
+								mp->p = mp->data + len;
+							}
+							runetochar(mp->p, &r);
+							if(addthread(nl, inst->u2.next, &tlp->se) == nle)
+								goto Overflow;
+						}
+						break;
+					case LBRA:
+						//tlp->se.m[inst->u1.subid].s.sp = s;
+						continue;
+					case RBRA:
+						//tlp->se.m[inst->u1.subid].e.ep = s;
+						continue;
+					case ANY:
+						if(r != '\n')
+							goto Saveandstep;
+						break;
+					case ANYNL:
+						goto Saveandstep;
+						break;
+					case BOL:
+						if(pos == initial || prevr == '\n')
+							continue;
+						break;
+					case EOL:
+						if(r == 0 || r == '\n')
+							goto Saveandstep;
+						else if(r == Beof)
+							continue;
+						break;
+					case CCLASS:
+						if(inclass(r, inst->u1.cp))
+							goto Saveandstep;
+						break;
+					case NCCLASS:
+						if(!inclass(r, inst->u1.cp))
+							goto Saveandstep;
+						break;
+					case OR:
+						/* evaluate right choice later */
+						if(addthread(tlp, inst->u1.right, &tlp->se) == tle)
+							goto Overflow;
+						/* efficiency: advance and re-evaluate */
+						continue;
+					case END: /* Match! */
+						ret = 1;
+						goto Return;
+				}
+				break; /* very important */
+			} /* inner thread loop */
+		} /* outer thread loop */
+	} /* file read loop */
+
+Return:
+	if(overflow) {
+		free(tl);
+		free(nl);
 	}
 
-	return 1;
+	rl = runelen(r);
+	mp->e = pos + rl;
+	*mp->p = 0;
+	mp->p = mp->data;
+
+	return ret;
+
+Overflow:
+	if(++overflow == 1) {
+		tmp = calloc(_DYNLEN, sizeof(Relist));
+		memcpy(tmp, tl, tle - tl);
+		//for(int i = 0; i < MAXSUBEXP; ++i)
+		//	tmp->se.m[i] = tl->se.m[i];
+		tl = tmp;
+
+		tmp = calloc(_DYNLEN, sizeof(Relist));
+		memcpy(tmp, nl, nle - nl);
+		//for(int i = 0; i < MAXSUBEXP; ++i)
+		//	tmp->se.m[i] = nl->se.m[i];
+		nl = tmp;
+
+		tle = tl + _DYNLEN - 2;
+		nle = nl + _DYNLEN - 2;
+
+		goto Execloop;
+	}
+
+	/* if overflowed twice exit */
+	if(tl)
+		free(tl);
+	if(nl)
+		free(nl);
+
+	fprint(2, "extract: overflowed threadlist\n");
+
+	return -1;
+}
+
+Rune
+fromfile(void)
+{
+	return Bgetrune(bp);
+}
+
+Rune
+frommatch(void)
+{
+	Rune r;
+	match.p += chartorune(&r, match.p);
+	return r;
 }
 
 void
-output(void)
+siv(Biobuf *bp, Reprog *progarr[REMAX])
 {
-	Sresubarr sarr;
-	Sresub *sp;
-	long r;
-	long pos;
+	int m, i;
+Sivloop:
+	for(; bp->state != Bracteof;) {
+		m = extract(progarr[0], &match, fromfile);
+		if(!m) goto Sivloop;
 
-	sarr = data[t];
-	r = 0;
+		for(i = 1; i < t; ++i) {
+			m = extract(progarr[i], &match, frommatch);
+			if(!m) goto Sivloop;
+		}
 
-	for(int i = 0; i < sarr.l; ++i) {
-		sp = &sarr.p[i];
+		if(t == n - 1) {
+			target = match;
+			goto Sivoutput;
+		}
 
+		target.data = malloc((target.cap = match.cap));
+		strcpy(target.data, match.data);
+
+		for(; i < n; ++i) {
+			m = extract(progarr[i], &match, frommatch);
+			if(!m) goto Sivloop;
+		}
+
+	Sivoutput:
 		if(locat)
-			print("@@ %s,%li,%li @@", path, sp->s, sp->e);
-
-		pos = sp->s;
-		Bseek(bp, pos, 0);
-
-		do {
-			r = Bgetrune(bp);
-			if(r > 0)
-				print("%C", r);
-			pos += runelen(r);
-		} while(pos < sp->e);
+			Bprint(&outbuf, "@@ %s,%li,%li @@", path, target.s, target.e);
+		Bprint(&outbuf, "%s", target.data);
 	}
 }
 
@@ -236,11 +383,12 @@ cleanup(void)
 	for(i = 0; i < n; ++i)
 		free(progarr[i]);
 
-	for(i = 0; i < n; ++i)
-		free(data[i].p);
-
 	if(dstack)
 		free(dstack);
+
+	if(target.data != match.data)
+		free(target.data);
+	free(match.data);
 
 	free(bp);
 }
@@ -257,6 +405,9 @@ main(int argc, char *argv[])
 	}
 
 	bp = malloc(sizeof(Biobuf));
+	Binit(&outbuf, 1, O_WRONLY);
+	match.p = match.data = malloc((match.cap = 4096));
+	match.s = 1;
 	stack = sstack;
 	dstack = 0;
 	fd = 0;
@@ -322,18 +473,10 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	/* TODO
-	 * reading stdin from pipes doesn't work
-	 *
-	 * SOLUTION
-	 * refactor to account for inability to seek through
-	 * pipes
-	 */
 	if(optind == argc) {
 		Binit(bp, 0, O_RDONLY);
 		strcpy(path, "<stdin>");
-		if(siv(bp, progarr, data, n))
-			output();
+		siv(bp, progarr);
 		cleanup();
 		return 0;
 	}
@@ -362,6 +505,7 @@ main(int argc, char *argv[])
 			if(*(stack[d].cp - 1) != '/')
 				*(stack[d].cp++) = '/';
 			stack[d].dp = fdopendir(fd);
+
 			while(d > -1) {
 				while((ent = readdir(stack[d].dp)) != NULL) {
 					if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
@@ -386,8 +530,7 @@ main(int argc, char *argv[])
 					if(ent->d_type == DT_REG) {
 						fd = open(path, O_RDONLY);
 						Binit(bp, fd, O_RDONLY);
-						if(siv(bp, progarr, data, n))
-							output();
+						siv(bp, progarr);
 						close(fd);
 					}
 				}
@@ -399,8 +542,7 @@ main(int argc, char *argv[])
 		}
 
 		Binit(bp, fd, O_RDONLY);
-		if(siv(bp, progarr, data, n))
-			output();
+		siv(bp, progarr);
 		close(fd);
 	}
 

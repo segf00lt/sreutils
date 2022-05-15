@@ -62,3 +62,20 @@ Adding a check for successful extract() in siv() makes searching through files w
 approximately 75% faster.
 
 The new algorithm for siv() should be faster in cases where there are lots of matches. *Need to test*
+
+
+
+
+
+
+### siv rewrite ###
+
+Instead of operating on number ranges, the first match layer will read from the
+stream and record matched bytes in a buffer. Subsequent match layers will read
+from and write to this buffer. A spare buffer will be allocated if the target
+layer isn't last. The byte ranges will be recorded also.
+
+DFS instead os BFS.
+
+In order to account for pipes not being seekable streams, we need to match
+each layer in a DFS.
