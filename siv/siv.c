@@ -22,8 +22,7 @@
 #endif
 
 /* IO */
-#define IOBUFSIZE 128
-#define IOREADSIZE 1024
+#define IOBUFSIZE 4096
 
 typedef struct {
 	char *buf;
@@ -61,7 +60,7 @@ void
 Ibinit(Ibuf *ib, int fd) {
 	size_t got;
 	ib->start = ib->pos = 0;
-	ib->end = ib->cap;
+	ib->end = ib->cap - 1;
 	ib->fd = fd;
 	ib->eof = 0;
 	ib->canread = 1;
@@ -69,7 +68,8 @@ Ibinit(Ibuf *ib, int fd) {
 	if((got = read(fd, ib->buf, ib->cap)) < ib->cap) {
 		ib->eof = 1;
 		ib->canread = 0;
-		ib->end = ib->cap = got;
+		ib->cap = got;
+		ib->end = ib->cap - 1;
 	}
 }
 
@@ -80,22 +80,23 @@ Ibgetsym(Ibuf *ib, bool grow) {
 	char *p;
 	int n;
 
-	if((ib->eof && ib->pos >= ib->cap) || (ib->pos >= ib->end))
+	if((ib->eof && ib->pos >= ib->cap) || (ib->pos > ib->end))
 		return -1;
 
 	n = chartorune(&r, ib->buf + ib->pos);
+
 	ib->pos += n;
 	ib->offset += n;
 	if(ib->canread && ib->pos >= ib->cap) {
 		if(grow) {
-			ib->end = (ib->cap *= 2);
+			ib->end = (ib->cap *= 2) - 1;
 			ib->buf = realloc(ib->buf, ib->cap);
 			want = ib->cap - ib->pos;
 			p = ib->buf + ib->pos;
 			if((got = read(ib->fd, p, want)) < want) {
 				ib->canread = 0;
 				ib->eof = 1;
-				ib->end = (ib->cap -= want - got);
+				ib->end = (ib->cap -= want - got) - 1;
 			}
 		} else {
 			ib->pos = 0;
@@ -104,7 +105,8 @@ Ibgetsym(Ibuf *ib, bool grow) {
 			if((got = read(ib->fd, p, want)) < want) {
 				ib->canread = 0;
 				ib->eof = 1;
-				ib->end = ib->cap = got;
+				ib->cap = got;
+				ib->end = ib->cap - 1;
 			}
 		}
 	}
@@ -115,7 +117,6 @@ Ibgetsym(Ibuf *ib, bool grow) {
 /* regex */
 #define _STATICLEN 11
 #define _DYNLEN 151
-
 #define MAXSUBEXP 10
 
 typedef struct {
@@ -205,8 +206,9 @@ extract(Reprog *progp,	/* regex prog to execute */
 	int match = 0;
 
 Execloop:
-	while(((pos = ib->pos) <= ib->end) && r != -1) {
+	while(r != -1) {
 
+		pos = ib->pos;
 		prevr = r;
 		r = Ibgetsym(ib, (bool)nl->inst);
 
@@ -256,10 +258,12 @@ Execloop:
 							continue;
 						break;
 					case EOL:
-						if(r == '\n')
-							goto Addthreadnext;
-						if(pos == ib->end)
-							continue;
+						switch(r) {
+							case '\n':
+								goto Addthreadnext;
+							case -1:
+								continue;
+						}
 						break;
 					case CCLASS:
 						if(inclass(r, inst->u1.cp))
@@ -412,13 +416,14 @@ escape(char *s) {
 void
 siv(Ibuf *ib, Obuf *ob, Reprog *progarr[REMAX], Sub match[REMAX], int n, int t) {
 	char locatbuf[LOCATLEN];
-	Rune tmp;
 	size_t towrite;
 	size_t s, e;
 	int l = 0;
+	int couldread;
 
-	while(!ib->eof) {
+	while(!(ib->eof && ib->pos >= ib->cap)) {
 		for(int i = 0; i < n; ++i) {
+			couldread = ib->canread;
 			if(!extract(progarr[i], ib, &match[i]))
 				goto Sivloopupdate;
 			ib->offset += match[i].s - ib->pos;
@@ -427,12 +432,15 @@ siv(Ibuf *ib, Obuf *ob, Reprog *progarr[REMAX], Sub match[REMAX], int n, int t) 
 			ib->canread = 0;
 		}
 
+		if(match[t].s >= ib->cap)
+			break;
+
 		ib->offset += match[t].s - ib->pos;
 		ib->pos = ib->start = match[t].s;
 		ib->end = match[t].e;
 		towrite = ib->end - ib->start;
 		s = ib->offset;
-		e = ib->offset + towrite - chartorune(&tmp, ib->buf + ib->pos);
+		e = ib->offset + towrite - 1;
 		if(locat) {
 			l = snprint(locatbuf, LOCATLEN, "@@ %s,%li,%li @@", path, s, e);
 			Obwrite(ob, locatbuf, l);
@@ -442,8 +450,8 @@ siv(Ibuf *ib, Obuf *ob, Reprog *progarr[REMAX], Sub match[REMAX], int n, int t) 
 	Sivloopupdate:
 		ib->offset += match[0].e - ib->pos;
 		ib->pos = ib->start = match[0].e;
-		ib->end = ib->cap;
-		ib->canread = 1;
+		ib->end = ib->cap - 1;
+		ib->canread = couldread;
 	}
 }
 
@@ -460,6 +468,7 @@ cleanup(void) {
 		write(1, ob.buf, ob.cur - ob.buf);
 }
 
+/* TODO something wrong with reading large directories */
 int
 main(int argc, char *argv[]) {
 	name = argv[0];
