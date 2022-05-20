@@ -4,7 +4,7 @@ INCLUDEPATH = lib/include
 LINKPATH = lib/link
 
 siv: lib
-	$(CC) $(CFLAGS) siv.c -o siv -I$(INCLUDEPATH) -L$(LINKPATH) -lbio -lregexp9 -lfmt -lutf
+	$(MAKE) -C siv/ all
 
 test: lib
 	$(CC) $(CFLAGS) test.c -o test -I$(INCLUDEPATH) -L$(LINKPATH) -lbio -lregexp9 -lfmt -lutf
