@@ -346,58 +346,58 @@ main(int argc, char *argv[])
 		strcpy(path, argv[optind]);
 
 		fstat(fd, &buf);
-		if(S_ISDIR(buf.st_mode)) {
-			if(!recur) {
-				fprint(2, "%s: %s: is a directory\n", name, argv[optind]);
-				close(fd);
-				continue;
-			}
 
-			d = 0;
-			stack[d].cp = path + strlen(path);
-			if(*(stack[d].cp - 1) != '/')
-				*(stack[d].cp++) = '/';
-			stack[d].dp = fdopendir(fd);
-			while(d > -1) {
-				while((ent = readdir(stack[d].dp)) != NULL) {
-					if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
-						continue;
-
-					strcpy(stack[d].cp, ent->d_name);
-
-					if(ent->d_type == DT_DIR) {
-						++d;
-						if(dstack == 0 && d >= STATIC_DEPTH) {
-							dstack = malloc(DYNAMIC_DEPTH * sizeof(Rframe));
-							memcpy(dstack, sstack, STATIC_DEPTH * sizeof(Rframe));
-							stack = dstack;
-						}
-
-						stack[d].cp = stack[d - 1].cp + strlen(ent->d_name);
-						stack[d].dp = opendir(path);
-						*(stack[d].cp++) = '/';
-						continue;
-					}
-
-					if(ent->d_type == DT_REG) {
-						fd = open(path, O_RDONLY);
-						Binit(bp, fd, O_RDONLY);
-						if(siv(bp, progarr, data, n))
-							output();
-						close(fd);
-					}
-				}
-
-				closedir(stack[d--].dp);
-			}
-
+		if(!S_ISDIR(buf.st_mode)) {
+			Binit(bp, fd, O_RDONLY);
+			if(siv(bp, progarr, data, n))
+				output();
+			close(fd);
 			continue;
 		}
 
-		Binit(bp, fd, O_RDONLY);
-		if(siv(bp, progarr, data, n))
-			output();
-		close(fd);
+		if(!recur) {
+			fprint(2, "%s: %s: is a directory\n", name, argv[optind]);
+			close(fd);
+			continue;
+		}
+
+		d = 0;
+		stack[d].cp = path + strlen(path);
+		if(*(stack[d].cp - 1) != '/')
+			*(stack[d].cp++) = '/';
+		stack[d].dp = fdopendir(fd);
+		while(d > -1) {
+			while((ent = readdir(stack[d].dp)) != NULL) {
+				if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
+					continue;
+
+				strcpy(stack[d].cp, ent->d_name);
+
+				if(ent->d_type == DT_DIR) {
+					++d;
+					if(dstack == 0 && d >= STATIC_DEPTH) {
+						dstack = malloc(DYNAMIC_DEPTH * sizeof(Rframe));
+						memcpy(dstack, sstack, STATIC_DEPTH * sizeof(Rframe));
+						stack = dstack;
+					}
+
+					stack[d].cp = stack[d - 1].cp + strlen(ent->d_name);
+					stack[d].dp = opendir(path);
+					*(stack[d].cp++) = '/';
+					continue;
+				}
+
+				if(ent->d_type == DT_REG) {
+					fd = open(path, O_RDONLY);
+					Binit(bp, fd, O_RDONLY);
+					if(siv(bp, progarr, data, n))
+						output();
+					close(fd);
+				}
+			}
+
+			closedir(stack[d--].dp);
+		}
 	}
 
 	cleanup();

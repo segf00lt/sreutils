@@ -1,4 +1,6 @@
 siv
+*.bin
+sregexec.h
 stb_ds.h
 lib/include
 *.vim

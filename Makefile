@@ -4,7 +4,8 @@ INCLUDEPATH = lib/include
 LINKPATH = lib/link
 
 siv: lib
-	$(CC) $(CFLAGS) siv.c -o siv \
+	$(CC) $(CFLAGS) siv.c \
+		-o siv \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lbio -lregexp9 -lfmt -lutf
 
@@ -13,19 +14,19 @@ test: test_Bgetre_comment test_Bgetre_cfunc test_Bgetre_pipe
 
 test_Bgetre_comment: lib
 	$(CC) $(CFLAGS) -fsanitize=address test/test_Bgetre_comment.c structregex.c \
-		-o test/test_Bgetre_comment \
+		-o test/test_Bgetre_comment.bin \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lbio -lregexp9 -lfmt -lutf
 
 test_Bgetre_cfunc: lib
 	$(CC) $(CFLAGS) test/test_Bgetre_cfunc.c structregex.c \
-		-o test/test_Bgetre_cfunc \
+		-o test/test_Bgetre_cfunc.bin \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lbio -lregexp9 -lfmt -lutf
 
 test_Bgetre_pipe: lib
 	$(CC) $(CFLAGS) test/test_Bgetre_pipe.c structregex.c \
-		-o test/test_Bgetre_pipe \
+		-o test/test_Bgetre_pipe.bin \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lbio -lregexp9 -lfmt -lutf
 
