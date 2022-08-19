@@ -20,8 +20,10 @@ in mind.
 
 ## TODO
 
-- add greedy and non-greedy matches to regexp
-- tweak and improve `siv`
+- test `strgetre()`
+- rewrite `siv` with new executors
+- add greedy and non-greedy matches
+- refactor build and test systems
 - write `pike`
 - write `auk`
 
