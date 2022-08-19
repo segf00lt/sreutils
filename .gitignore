@@ -1,14 +1,13 @@
 siv
 stb_ds.h
-lib/include/*
+lib/include
 *.vim
-lib/link/*
+lib/link
 etc
 tags
 vgcore*
 *.o
 *.a
-*test*
 a.out
 *.3
 *.7

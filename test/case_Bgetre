@@ -12,6 +12,9 @@
 
 typedef struct Sresub Sresub;
 
+// this comment won't match
+/* this comment will match */
+
 struct Sresub {
 	long s;
 	long e; /* end is non inclusive */

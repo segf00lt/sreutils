@@ -1,0 +1,7 @@
+/* this comment will match *//* end is non inclusive *//* character to match *//* character class *//*
+ * Note optimization in addthread (taken from _renewthread):
+ * 	*lp must be pending when _renewthread called; if *l has been looked
+ *		at already, the optimization is a bug.
+ *//* list to add to *//* instruction to add *//* subexpressions *//* structural regex execution is performed on a file (or Biobuf in this case)
+ * as opposed to an in memory string
+ *//* regex prog to execute *//* file buffer to read *//* subexpression elements *//* num of elem in mp *//* used for reinitializing submatches *//* counts number of times tl and/or nl's capacity is reached *//* go to start *//* skip to first character in progp *//* swap lists *//* restart until progress is made or match is found *//* evaluate right choice later *//* efficiency: advance and re-evaluate *//* Match! *//* non-greedy match makes multi-line exp simpler *//* inner thread loop *//* outer thread loop *//* file read loop *//* if overflowed twice exit */

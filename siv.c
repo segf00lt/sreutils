@@ -216,7 +216,7 @@ output(void)
 		sp = &sarr.p[i];
 
 		if(locat)
-			print("@@ %s,%li,%li @@", path, sp->s, sp->e);
+			print("==\n@@ %s,%li,%li @@\n==\n", path, sp->s, sp->e);
 
 		pos = sp->s;
 		Bseek(bp, pos, 0);
