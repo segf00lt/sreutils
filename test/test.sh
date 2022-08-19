@@ -31,8 +31,4 @@ printf 'test: Bgetre_pipe\nstatus: '
 echo
 
 rm -f error
-
-for bin in ${testbin[@]}
-do
-	rm -f $bin
-done
+rm -f ${testbin[@]}
