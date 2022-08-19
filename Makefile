@@ -9,28 +9,10 @@ siv: lib
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lbio -lregexp9 -lfmt -lutf
 
-test: test_Bgetre_comment test_Bgetre_cfunc test_Bgetre_pipe
-	cd test; ./unittest.sh; cd ..;
-
-test_Bgetre_comment: lib
-	$(CC) $(CFLAGS) -fsanitize=address test/test_Bgetre_comment.c structregex.c \
-		-o test/test_Bgetre_comment.bin \
-		-I$(INCLUDEPATH) -L$(LINKPATH) \
-		-lbio -lregexp9 -lfmt -lutf
-
-test_Bgetre_cfunc: lib
-	$(CC) $(CFLAGS) test/test_Bgetre_cfunc.c structregex.c \
-		-o test/test_Bgetre_cfunc.bin \
-		-I$(INCLUDEPATH) -L$(LINKPATH) \
-		-lbio -lregexp9 -lfmt -lutf
-
-test_Bgetre_pipe: lib
-	$(CC) $(CFLAGS) test/test_Bgetre_pipe.c structregex.c \
-		-o test/test_Bgetre_pipe.bin \
-		-I$(INCLUDEPATH) -L$(LINKPATH) \
-		-lbio -lregexp9 -lfmt -lutf
+test:
+	cd test; ./test.sh; cd ..;
 
 lib:
-	cd lib; ./lib.sh; cd ..;
+	cd lib; ./buildlib.sh; cd ..;
 
-.PHONY: siv test test_Bgetre_comment test_Bgetre_cfunc test test_Bgetre_pipe lib
+.PHONY: siv test lib

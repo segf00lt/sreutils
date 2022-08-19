@@ -11,7 +11,7 @@ extern int Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, char **wp, si
 #define C_FUNC_REGEXP "^([A-Za-z_][A-Za-z_*0-9]* ?)+\\**[\n \t]*[A-Za-z_][A-Za-z_0-9]*\\(([^)]+\n?)+\\)([\n \t]*/\\*.+\\*/)?[\n \t]?{$.+^}$"
 
 int main(void) {
-	Biobuf *bp = Bopen("case_Bgetre", O_RDONLY);
+	Biobuf *bp = Bopen("case/Bgetre", O_RDONLY);
 	Reprog *re = regcompnl(C_FUNC_REGEXP);
 	size_t size = 1024;
 	char *buf = malloc(size);

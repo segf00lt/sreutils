@@ -11,7 +11,7 @@ extern int Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, char **wp, si
 #define C_COMMENT "/\\*.*\\*/"
 
 int main(void) {
-	Biobuf *bp = Bopen("case_Bgetre", O_RDONLY);
+	Biobuf *bp = Bopen("case/Bgetre", O_RDONLY);
 	Reprog *re = regcompnl(C_COMMENT);
 	size_t size = 1024;
 	char *buf = malloc(size);
