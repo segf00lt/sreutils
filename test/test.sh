@@ -6,6 +6,18 @@ LINKPATH='../lib/link'
 
 testbin=()
 
+function unittest {
+	run=''
+	check=''
+
+	[[ -z "$2" ]] && run="./$1.bin" || run="$2" # if no $2 run ./$1
+	[[ -z "$3" ]] && check="expect/$1" || check="$3"
+
+	printf "test: $1\nstatus: "
+	{ eval "$run" | cmp "$check" - ; } 1>/dev/null 2>err && echo passed || { echo failed && cat err ; }
+	echo
+}
+
 for src in *.c
 do
 	bin=${src%.c}.bin
@@ -15,20 +27,10 @@ done
 
 printf '\n##################\n### unit tests ###\n##################\n\n'
 
-printf 'test: Bgetre_comment\nstatus: '
-{ ./Bgetre_comment.bin | cmp expect/Bgetre_comment - ; } 1>/dev/null 2>error \
-	&& echo passed || { echo failed && cat error ; }
-echo
+unittest Bgetre_comment
+unittest Bgetre_cfunc
+unittest Bgetre_pipe 'cat case/Bgetre | ./Bgetre_pipe.bin' 'expect/Bgetre_cfunc'
+unittest strgetretest
 
-printf 'test: Bgetre_cfunc\nstatus: '
-{ ./Bgetre_cfunc.bin | cmp expect/Bgetre_cfunc - ; } 1>/dev/null 2>error \
-	&& echo passed || { echo failed && cat error ; }
-echo
-
-printf 'test: Bgetre_pipe\nstatus: '
-{ cat 'case/Bgetre' | ./Bgetre_pipe.bin | cmp expect/Bgetre_cfunc - ; } 1>/dev/null 2>error \
-	&& echo passed || { echo failed && cat error ; }
-echo
-
-rm -f error
+rm -f err
 rm -f ${testbin[@]}

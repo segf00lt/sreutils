@@ -20,7 +20,7 @@ in mind.
 
 ## TODO
 
-- test `strgetre()`
+- ~~test `strgetre()`~~
 - rewrite `siv` with new executors
 - add greedy and non-greedy matches
 - refactor build and test systems

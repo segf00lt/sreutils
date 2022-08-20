@@ -296,7 +296,6 @@ strgetre(char *str, /* string to read */
 
 	Rune r;
 	Rune prevr;
-	int rlen;
 	r = prevr = 0;
 
 	int starttype = progp->startinst->type;
@@ -305,7 +304,7 @@ strgetre(char *str, /* string to read */
 	int overflow = 0;
 	int match = 0;
 
-	char *ptr;
+	char *curp, *nextp;
 	char *begin;
 	char *end;
 
@@ -313,20 +312,24 @@ strgetre(char *str, /* string to read */
 	end = 0;
 
 	if(msize > 0 && mp != 0) {
-		begin = mp->s.sp;
-		end = mp->e.ep;
+		if(mp->s.sp)
+			begin = mp->s.sp;
+		if(mp->e.ep)
+			end = mp->e.ep;
 	}
 
-	ptr = begin;
+	nextp = curp = begin;
 
 strgetre_Execloop:
-	while(r != 0 && !(end != 0 && ptr > end)) {
+	do {
 		prevr = r;
-		ptr += (rlen = chartorune(&r, ptr));
+		nextp += chartorune(&r, curp);
 
 		/* skip to first character in progp */
-		if(startchar && nl->inst == 0 && startchar != r && r != 0)
+		if(startchar && nl->inst == 0 && startchar != r && r != 0) {
+			curp = nextp;
 			continue;
+		}
 
 		/* swap lists */
 		tmp = tl;
@@ -338,7 +341,7 @@ strgetre_Execloop:
 		nl->inst = 0;
 
 		if(match == 0 && tl->inst == 0) { /* restart until progress is made or match is found */
-			sl.m[0].s.sp = ptr;
+			sl.m[0].s.sp = curp;
 			addthread(tl, progp->startinst, msize, &sl);
 		}
 
@@ -353,10 +356,10 @@ strgetre_Execloop:
 						}
 						break;
 					case LBRA:
-						tlp->se.m[inst->u1.subid].s.sp = ptr;
+						tlp->se.m[inst->u1.subid].s.sp = curp;
 						continue;
 					case RBRA:
-						tlp->se.m[inst->u1.subid].e.ep = ptr;
+						tlp->se.m[inst->u1.subid].e.ep = curp;
 						continue;
 					case ANY:
 						if(r != '\n')
@@ -370,7 +373,8 @@ strgetre_Execloop:
 							continue;
 						break;
 					case EOL:
-						if(ptr == end || r == 0 || r == '\n')
+						// TODO test $
+						if(curp == end || r == 0 || r == '\n')
 							goto strgetre_Addthreadnext;
 						break;
 					case CCLASS:
@@ -389,7 +393,7 @@ strgetre_Execloop:
 						continue;
 					case END: /* Match! */
 						match = 1;
-						tlp->se.m[0].e.ep = ptr - rlen; /* ranges are inclusive */
+						tlp->se.m[0].e.ep = curp; /* ranges are inclusive */
 						if(mp) savematch(mp, msize, &tlp->se);
 						goto strgetre_Return; /* nongreedy for simple multiline exp */
 				}
@@ -398,7 +402,13 @@ strgetre_Execloop:
 
 			} /* inner thread loop */
 		} /* outer thread loop */
-	} /* file read loop */
+
+		if(curp == end)
+			break;
+
+		curp = nextp; /* step string */
+
+	} while(r != 0); /* string read loop */
 
 strgetre_Return:
 	if(overflow) {
