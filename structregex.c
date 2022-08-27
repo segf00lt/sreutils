@@ -146,6 +146,13 @@ Bgetre(Biobuf *bp, /* file to read */
 	size_t size = *wsize;
 	size_t i = 0; /* position in s */
 
+	if(msize > 0 && mp != 0) {
+		for(int i = 0; i < msize; ++i) { /* VERY IMPORTANT savematch() won't work otherwise */
+			mp[i].s.sp = 0;
+			mp[i].e.ep = 0;
+		}
+	}
+
 Bgetre_Execloop:
 	while(r != Beof) {
 		prevr = r;
