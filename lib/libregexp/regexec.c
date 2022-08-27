@@ -34,7 +34,7 @@ regexec1(Reprog *progp,	/* program to run */
 
 	match = 0;
 	checkstart = j->starttype;
-	if(mp)
+	if(mp) /* NOTE Zero init subexpressions remember that j->starts and j->eol are already set */
 		for(i=0; i<ms; i++) {
 			mp[i].s.sp = 0;
 			mp[i].e.ep = 0;
@@ -45,12 +45,12 @@ regexec1(Reprog *progp,	/* program to run */
 	/* Execute machine once for each character, including terminal NUL */
 	s = j->starts;
 	do{
-		/* NOTE: skips s to first matching RUNE or BOL */
+		/* NOTE skips s to first matching RUNE or BOL */
 		/* fast check for first char */
 		if(checkstart) {
 			switch(j->starttype) {
 			case RUNE:
-				/* NOTE: utfrune calls strchr if j->startchar is a char,
+				/* NOTE utfrune calls strchr if j->startchar is a char,
 				 * if j->startchar is a Rune utfrune walks till
 				 * the matching Rune in s is found
 				 */
@@ -63,7 +63,7 @@ regexec1(Reprog *progp,	/* program to run */
 				if(s == bol)
 					break;
 				p = utfrune(s, '\n');
-				/* NOTE: second check to do with submatch tracking (?) */
+				/* NOTE second check to do with submatch tracking (?) */
 				if(p == 0 || s == j->eol)
 					return match;
 				s = p+1;
@@ -78,20 +78,20 @@ regexec1(Reprog *progp,	/* program to run */
 			n = chartorune(&r, s);
 
 		/* switch run lists */
-		/* NOTE: this is where the thread lists get swapped */
+		/* NOTE this is where the thread lists get swapped */
 		tl = j->relist[flag];
 		tle = j->reliste[flag];
 		nl = j->relist[flag^=1];
 		nle = j->reliste[flag];
 		nl->inst = 0;
 
-		/* NOTE: _renewemptythread will only renew the threadlist on the very first pass,
+		/* NOTE _renewemptythread will only renew the threadlist on the very first pass,
 		 * on subsequent passes it adds progp->startinst to the end of the threadlist
 		 */
 		/* Add first instruction to current list */
 		if(match == 0 && tl->inst == 0) { /* keep the machine going until it starts matching stuff */
 			//_renewemptythread(tl, progp->startinst, ms, s);
-			/* NOTE: restarts execution from first inst and sets main submatch begin to s */
+			/* NOTE restarts execution from first inst and sets main submatch begin to s */
 			sl.m[0].s.sp = s;
 			_renewthread(tl, progp->startinst, ms, &sl);
 		}
@@ -157,7 +157,7 @@ regexec1(Reprog *progp,	/* program to run */
 					match = 1;
 					tlp->se.m[0].e.ep = s;
 					if(mp != 0)
-						/* NOTE: as said in the comment above _renewmatch's decl
+						/* NOTE as said in the comment above _renewmatch's decl
 						 * this function saves the main match in mp[0]
 						 *
 						 * It should be callen _savematch
@@ -207,7 +207,7 @@ regexec2(Reprog *progp,	/* program to run */
 	return rv;
 }
 
-/* NOTE: maximum number of threads for regexec is 250 */
+/* NOTE maximum number of threads for regexec is 250 */
 extern int
 regexec(Reprog *progp,	/* program to run */
 	char *bol,	/* string to run machine on */
@@ -244,13 +244,13 @@ regexec(Reprog *progp,	/* program to run */
 	j.reliste[0] = relist0 + nelem(relist0) - 2;
 	j.reliste[1] = relist1 + nelem(relist1) - 2;
 
-	/* NOTE: regexec1 runs progp using statically allocated thread
+	/* NOTE regexec1 runs progp using statically allocated thread
 	 * lists, relist0 and relist1 
 	 */
 	rv = regexec1(progp, bol, mp, ms, &j);
 	if(rv >= 0)
 		return rv;
-	/* NOTE: regexec2 runs progp using dynamically allocated thread
+	/* NOTE regexec2 runs progp using dynamically allocated thread
 	 * lists which it allocates, and frees before returning
 	 */
 	rv = regexec2(progp, bol, mp, ms, &j);

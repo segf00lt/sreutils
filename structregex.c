@@ -89,6 +89,15 @@ savematch(Resub *mp, int ms, Resublist *sp)
 	if(mp == 0 || ms <= 0)
 		return;
 
+	/* NOTE
+	 * A match will be saved iff
+	 * the beginning of mp group 0 is NULL
+	 * or the current thread's group 0 starts before mp group 0
+	 * or
+	 * the current thread's group 0 starts in the same place as mp group 0
+	 * and
+	 * the current thread's group 0 ends further in the string than mp group 0
+	 */
 	if(mp[0].s.sp == 0 || sp->m[0].s.sp < mp[0].s.sp ||
 		(sp->m[0].s.sp == mp[0].s.sp && sp->m[0].e.ep > mp[0].e.ep))
 	{
@@ -316,6 +325,11 @@ strgetre(char *str, /* string to read */
 			begin = mp->s.sp;
 		if(mp->e.ep)
 			end = mp->e.ep;
+
+		for(int i = 0; i < msize; ++i) { /* VERY IMPORTANT savematch() won't work otherwise */
+			mp[i].s.sp = 0;
+			mp[i].e.ep = 0;
+		}
 	}
 
 	nextp = curp = begin;
@@ -327,6 +341,9 @@ strgetre_Execloop:
 
 		/* skip to first character in progp */
 		if(startchar && nl->inst == 0 && startchar != r && r != 0) {
+			if(curp == end)
+				break;
+
 			curp = nextp;
 			continue;
 		}

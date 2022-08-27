@@ -1,0 +1,1 @@
+		if(!strgetre(data, rearr[i], range, &match, 1)) {

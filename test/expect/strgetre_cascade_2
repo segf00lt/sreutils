@@ -1,0 +1,2 @@
+		if(!strgetre(data, rearr[i], range, &match, 1)) {
+        assert not(m and not(m.group(0)))

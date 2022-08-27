@@ -31,6 +31,8 @@ unittest Bgetre_comment
 unittest Bgetre_cfunc
 unittest Bgetre_pipe 'cat case/Bgetre | ./Bgetre_pipe.bin' 'expect/Bgetre_cfunc'
 unittest strgetretest
+unittest strgetre_cascade_1
+unittest strgetre_cascade_2
 
 rm -f err
 rm -f ${testbin[@]}
