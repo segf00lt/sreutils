@@ -19,7 +19,7 @@
 
 #include "sregexec.h"
 
-#define USAGE "usage: %s [-rlh] [-e expression] [-p [0-9]] [expression] [files...]\n"
+#define USAGE "usage: %s [-rlh] [-e expression] [-t [0-9]] [expression] [files...]\n"
 #define REMAX 10
 #define STATIC_DEPTH 32
 #define DYNAMIC_DEPTH 128
@@ -291,9 +291,9 @@ main(int argc, char *argv[])
 			case 'l':
 				locat = 1;
 				break;
-			case 'p':
+			case 't':
 				if(++optind == argc) {
-					fprint(2, "%s: '-p' requires an argument\n", name);
+					fprint(2, "%s: '-t' requires an argument\n", name);
 					cleanup();
 					return 1;
 				}

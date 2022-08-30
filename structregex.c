@@ -235,7 +235,7 @@ Bgetre_Execloop:
 					case END: /* Match! */
 						s[i] = 0;
 						match = 1;
-						tlp->se.m[0].e.ep = s;
+						tlp->se.m[0].e.ep = s + i;
 						if(mp) savematch(mp, msize, &tlp->se);
 						goto Bgetre_Return; /* nongreedy for simple multiline exp */
 				}

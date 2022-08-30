@@ -1,0 +1,168 @@
+int
+sregexec(Reprog *progp,	/* regex prog to execute */
+	Biobuf *bp,	/* file buffer to read */
+	Sresub *mp,	/* subexpression elements */
+	int ms)	/* num of elem in mp */
+{
+	Srelist threadlist0[_STATICLEN], threadlist1[_STATICLEN];
+	threadlist0[0].inst = threadlist1[0].inst = 0;
+
+	Srelist *tl = threadlist0;
+	Srelist *nl = threadlist1;
+	Srelist *tle = threadlist0 + _STATICLEN - 2;
+	Srelist *nle = threadlist1 + _STATICLEN - 2;
+	Srelist *tmp = NULL;
+
+	Srelist *tlp;
+	Reinst *inst;
+
+	Sresublist sl; /* used for reinitializing submatches */
+
+	long start;
+	long end;
+	long pos;
+
+	Rune r = 0;
+	Rune prevr = 0;
+
+	if(mp && ms > 0) {
+		start = mp->s;
+		end = mp->e;
+
+		for(int i = 0; i < ms; ++i)
+			mp[i].s = mp[i].e = 0;
+	} else {
+		start = 0;
+		end = Bseek(bp, 0, SEEK_END);
+	}
+
+	int starttype = progp->startinst->type;
+	Rune startchar = starttype == RUNE ? progp->startinst->u1.r : 0;
+
+	int overflow = 0; /* counts number of times tl and/or nl's capacity is reached */
+	int match = 0;
+
+	Bseek(bp, start, 0); /* go to start */
+
+Execloop:
+	while((pos = Boffset(bp)) <= end) {
+
+		prevr = r;
+		r = Bgetrune(bp);
+
+		/* skip to first character in progp */
+		if(startchar && nl->inst == 0 && startchar != r && pos != end)
+			continue;
+
+		/* swap lists */
+		tmp = tl;
+		tl = nl;
+		nl = tmp;
+		tmp = tle;
+		tle = nle;
+		nle = tmp;
+		nl->inst = 0;
+
+		if(match == 0 && tl->inst == 0) { /* restart until progress is made or match is found */
+			sl.m[0].s = pos;
+			addthread(tl, progp->startinst, ms, &sl);
+		}
+
+		for(tlp = tl; tlp->inst; ++tlp) {
+			for(inst = tlp->inst; ; inst = inst->u2.next) {
+				switch(inst->type) {
+					case RUNE:
+						if(inst->u1.r == r) {
+					Addthreadnext:
+							if(addthread(nl, inst->u2.next, ms, &tlp->se) == nle)
+								goto Overflow;
+						}
+						break;
+					case LBRA:
+						tlp->se.m[inst->u1.subid].s = pos;
+						continue;
+					case RBRA:
+						tlp->se.m[inst->u1.subid].e = pos;
+						continue;
+					case ANY:
+						if(r != '\n')
+							goto Addthreadnext;
+						break;
+					case ANYNL:
+						goto Addthreadnext;
+						break;
+					case BOL:
+						if(pos == start || prevr == '\n')
+							continue;
+						break;
+					case EOL:
+						if((pos + runelen(r)) == end || r == 0 || r == '\n')
+							goto Addthreadnext;
+						break;
+					case CCLASS:
+						if(inclass(r, inst->u1.cp))
+							goto Addthreadnext;
+						break;
+					case NCCLASS:
+						if(!inclass(r, inst->u1.cp))
+							goto Addthreadnext;
+						break;
+					case OR:
+						/* evaluate right choice later */
+						if(addthread(tlp, inst->u1.right, ms, &tlp->se) == tle)
+							goto Overflow;
+						/* efficiency: advance and re-evaluate */
+						continue;
+					case END: /* Match! */
+						match = 1;
+						tlp->se.m[0].e = pos;
+						if(mp != 0)
+							savematch(mp, ms, &tlp->se);
+						goto Return; /* non-greedy match makes multi-line exp simpler */
+				}
+				break;
+			} /* inner thread loop */
+		} /* outer thread loop */
+
+		if(pos == end)
+			break;
+	} /* file read loop */
+
+Return:
+	if(overflow) {
+		free(tl);
+		free(nl);
+	}
+
+	return match;
+
+Overflow:
+	if(++overflow == 1) {
+		tmp = calloc(_DYNLEN, sizeof(Srelist));
+		memcpy(tmp, tl, tle - tl);
+		for(int i = 0; i < MAXSUBEXP; ++i)
+			tmp->se.m[i] = tl->se.m[i];
+		tl = tmp;
+
+		tmp = calloc(_DYNLEN, sizeof(Srelist));
+		memcpy(tmp, nl, nle - nl);
+		for(int i = 0; i < MAXSUBEXP; ++i)
+			tmp->se.m[i] = nl->se.m[i];
+		nl = tmp;
+
+		tle = tl + _DYNLEN - 2;
+		nle = nl + _DYNLEN - 2;
+
+		goto Execloop;
+	}
+
+	/* if overflowed twice exit */
+	if(tl)
+		free(tl);
+	if(nl)
+		free(nl);
+
+	fprint(2, "sregexec: overflowed threadlist\n");
+
+	return -1;
+}

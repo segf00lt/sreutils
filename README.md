@@ -20,9 +20,8 @@ in mind.
 
 ## TODO
 
-- ~~test `strgetre()`~~
-- rewrite `siv` with new executors
 - add greedy and non-greedy matches
+- rewrite `siv`
 - refactor build and test systems
 - write `pike`
 - write `auk`

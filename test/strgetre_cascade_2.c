@@ -11,7 +11,7 @@
 extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
 
 void siv(Reprog *rearr[REMAX-1], char *data, int depth, int t, Biobuf *outb) {
-	Resub stack[REMAX];
+	Resub stack[REMAX-2];
 	Resub range, target;
 	int i;
 

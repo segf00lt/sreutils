@@ -6,7 +6,7 @@ LINKPATH='../lib/link'
 
 testbin=()
 
-function unittest {
+function unit {
 	run=''
 	check=''
 
@@ -27,12 +27,13 @@ done
 
 printf '\n##################\n### unit tests ###\n##################\n\n'
 
-unittest Bgetre_comment
-unittest Bgetre_cfunc
-unittest Bgetre_pipe 'cat case/Bgetre | ./Bgetre_pipe.bin' 'expect/Bgetre_cfunc'
-unittest strgetretest
-unittest strgetre_cascade_1
-unittest strgetre_cascade_2
+unit Bgetre_comment
+unit Bgetre_cfunc
+unit Bgetre_pipe 'cat case/Bgetre | ./Bgetre_pipe.bin' 'expect/Bgetre_cfunc'
+unit strgetretest
+unit strgetre_cascade_1
+unit strgetre_cascade_2
+unit sivtest
 
 rm -f err
-rm -f ${testbin[@]}
+mv -t bin ${testbin[@]}
