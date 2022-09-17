@@ -25,7 +25,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	size_t wlen;
 	int i;
 
-	--depth;
+	--depth; // sub 1 because stack is only used starting from second regex
 	base = *rearr;
 	arr = rearr + 1;
 
@@ -41,7 +41,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 				continue;
 			}
 
-			if(t != 0 && i == t)
+			if(t != 0 && i == t) // don't save range if target is at base
 				target = range;
 
 			stack[i].s.sp = range.e.ep;
@@ -132,4 +132,3 @@ int main(void) {
 
 	return 0;
 }
-
