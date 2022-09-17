@@ -30,6 +30,8 @@ struct	Resublist
 #define	STAR		0205	/* Closure, * */
 #define	PLUS		0206	/* a+ == aa* */
 #define	QUEST		0207	/* a? == a|nothing, i.e. 0 or 1 a's */
+#define	NGSTAR		0210	/* non-greedy */
+#define	NGPLUS		0211
 #define	ANY		0300	/* Any character except newline, . */
 #define	ANYNL		0301	/* Any character including newline, . */
 #define	NOP		0302	/* No operation, internal use only */

@@ -168,9 +168,10 @@ evaluntil(int pri)
 {
 	Node *op1, *op2;
 	Reinst *inst1, *inst2;
+	int t;
 
 	while(pri==RBRA || atorp[-1]>=pri){
-		switch(popator()){
+		switch((t = popator())){
 		default:
 			rcerror("unknown operator in evaluntil");
 			break;
@@ -201,16 +202,22 @@ evaluntil(int pri)
 			op1->last->u2.next = op2->first;
 			pushand(op1->first, op2->last);
 			break;
+		case NGSTAR:
 		case STAR:
 			op2 = popand('*');
 			inst1 = newinst(OR);
+			if(t == NGSTAR)
+				inst1->type |= 0777000;
 			op2->last->u2.next = inst1;
 			inst1->u1.right = op2->first;
 			pushand(inst1, inst1);
 			break;
+		case NGPLUS:
 		case PLUS:
 			op2 = popand('+');
 			inst1 = newinst(OR);
+			if(t == NGPLUS)
+				inst1->type |= 0777000;
 			op2->last->u2.next = inst1;
 			inst1->u1.right = op2->first;
 			pushand(op2->first, inst1);
@@ -259,7 +266,7 @@ optimize(Reprog *pp)
 	diff = (char *)npp - (char *)pp;
 	freep = (Reinst *)((char *)freep + diff);
 	for(inst=npp->firstinst; inst<freep; inst++){
-		switch(inst->type){
+		switch(inst->type & 0777){
 		case OR:
 		case STAR:
 		case PLUS:
@@ -350,6 +357,7 @@ static	int
 lex(int literal, int dot_type)
 {
 	int quoted;
+	int len;
 
 	quoted = nextc(&yyrune);
 	if(literal || quoted){
@@ -362,10 +370,18 @@ lex(int literal, int dot_type)
 	case 0:
 		return END;
 	case '*':
+		if(utfrune(exprp, '?') == exprp + (len = runelen(yyrune))) {
+			exprp += len + 1;
+			return NGSTAR;
+		}
 		return STAR;
 	case '?':
 		return QUEST;
 	case '+':
+		if(utfrune(exprp, '?') == exprp + (len = runelen(yyrune))) {
+			exprp += len + 1;
+			return NGPLUS;
+		}
 		return PLUS;
 	case '|':
 		return OR;
