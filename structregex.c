@@ -129,6 +129,7 @@ Bgetre(Biobuf *bp, /* file to read */
 
 	Relist *tlp;
 	Reinst *inst;
+	Reinst *nextinst;
 
 	Resublist sl;
 
@@ -187,13 +188,14 @@ Bgetre_Execloop:
 
 
 		for(tlp = tl; tlp->inst; ++tlp) {
-			for(inst = tlp->inst; ; inst = inst->u2.next) {
+			for(inst = tlp->inst; ; inst = nextinst) {
+				nextinst = inst->u2.next;
 				switch(inst->type) {
 					case RUNE:
 						if(inst->u1.r == r) {
 					Bgetre_Addthreadnext:
 							s[i] = r; /* save r in s */
-							if(addthread(nl, inst->u2.next, msize, &tlp->se) == nle)
+							if(addthread(nl, nextinst, msize, &tlp->se) == nle)
 								goto Bgetre_Overflow;
 						}
 						break;
@@ -227,6 +229,14 @@ Bgetre_Execloop:
 							goto Bgetre_Addthreadnext;
 						break;
 					case OR:
+						if(inst->nongreedy) {
+							/* evaluate right choice now */
+							if(addthread(tlp, nextinst, msize, &tlp->se) == nle)
+								goto Bgetre_Overflow;
+							nextinst = inst->u1.right;
+							continue;
+						}
+
 						/* evaluate right choice later */
 						if(addthread(tlp, inst->u1.right, msize, &tlp->se) == tle)
 							goto Bgetre_Overflow;
@@ -307,6 +317,7 @@ strgetre(char *str, /* string to read */
 
 	Relist *tlp;
 	Reinst *inst;
+	Reinst *nextinst;
 
 	Resublist sl;
 
@@ -371,11 +382,12 @@ strgetre_Execloop:
 
 		for(tlp = tl; tlp->inst; ++tlp) {
 			for(inst = tlp->inst; ; inst = inst->u2.next) {
+				nextinst = inst->u2.next;
 				switch(inst->type) {
 					case RUNE:
 						if(inst->u1.r == r) {
 					strgetre_Addthreadnext:
-							if(addthread(nl, inst->u2.next, msize, &tlp->se) == nle)
+							if(addthread(nl, nextinst, msize, &tlp->se) == nle)
 								goto strgetre_Overflow;
 						}
 						break;
@@ -410,6 +422,14 @@ strgetre_Execloop:
 							goto strgetre_Addthreadnext;
 						break;
 					case OR:
+						if(inst->nongreedy) {
+							/* evaluate right choice now */
+							if(addthread(tlp, nextinst, msize, &tlp->se) == nle)
+								goto strgetre_Overflow;
+							nextinst = inst->u1.right;
+							continue;
+						}
+
 						/* evaluate right choice later */
 						if(addthread(tlp, inst->u1.right, msize, &tlp->se) == tle)
 							goto strgetre_Overflow;
@@ -472,3 +492,197 @@ strgetre_Overflow:
 
 	return -1;
 }
+
+
+// TESTING
+
+size_t
+Bgetre_nongreedy(Biobuf *bp, /* file to read */
+	Reprog *progp, /* regexp used */
+	Resub *mp, /* submatch array */
+	int msize, /* mp capacity */
+	char **wp, /* addr of buffer to store main match */
+	size_t *wsize) /* addr of var to store size of wp */
+{
+	Relist threadlist0[_STATICLEN];
+	Relist threadlist1[_STATICLEN];
+	threadlist0[0].inst = threadlist1[0].inst = 0;
+
+	Relist *tl = threadlist0;
+	Relist *nl = threadlist1;
+	Relist *tle = threadlist0 + _STATICLEN - 2;
+	Relist *nle = threadlist1 + _STATICLEN - 2;
+	Relist *tmp = 0;
+
+	Relist *tlp;
+	Reinst *inst;
+	Reinst *nextinst;
+
+	Resublist sl;
+
+	Rune r;
+	Rune prevr;
+	r = prevr = 0;
+
+	int starttype = progp->startinst->type;
+	Rune startchar = (starttype == RUNE) * progp->startinst->u1.r;
+
+	int overflow = 0;
+	int match = 0;
+
+	char *s = *wp;
+	size_t size = *wsize;
+	size_t i = 0; /* position in s */
+
+	if(msize > 0 && mp != 0) {
+		for(int i = 0; i < msize; ++i) { /* VERY IMPORTANT savematch() won't work otherwise */
+			mp[i].s.sp = 0;
+			mp[i].e.ep = 0;
+		}
+	}
+
+Bgetre_nongreedy_Execloop:
+	while(r != Beof) {
+		prevr = r;
+		r = Bgetrune(bp);
+
+		/* skip to first character in progp */
+		if(startchar && nl->inst == 0 && startchar != r && r != Beof) {
+			i = 0; /* go back to beginning of s */
+			continue;
+		}
+
+		/* swap lists */
+		tmp = tl;
+		tl = nl;
+		nl = tmp;
+		tmp = tle;
+		tle = nle;
+		nle = tmp;
+		nl->inst = 0;
+
+		if(match == 0 && tl->inst == 0) { /* restart until progress is made or match is found */
+			i = 0;
+			sl.m[0].s.sp = s;
+			addthread(tl, progp->startinst, msize, &sl);
+		} else
+			++i; /* if matching step position in s */
+
+		if(i >= size) { /* realloc s if matching */
+			size *= 2;
+			s = realloc(s, size);
+		}
+
+
+		for(tlp = tl; tlp->inst; ++tlp) {
+			for(inst = tlp->inst; ; inst = nextinst) {
+				nextinst = inst->u2.next;
+				switch(inst->type) {
+					case RUNE:
+						if(inst->u1.r == r) {
+					Bgetre_nongreedy_Addthreadnext:
+							s[i] = r; /* save r in s */
+							if(addthread(nl, nextinst, msize, &tlp->se) == nle)
+								goto Bgetre_nongreedy_Overflow;
+						}
+						break;
+					case LBRA:
+						tlp->se.m[inst->u1.subid].s.sp = s;
+						continue;
+					case RBRA:
+						tlp->se.m[inst->u1.subid].e.ep = s;
+						continue;
+					case ANY:
+						if(r != '\n')
+							goto Bgetre_nongreedy_Addthreadnext;
+						break;
+					case ANYNL:
+						goto Bgetre_nongreedy_Addthreadnext;
+						break;
+					case BOL:
+						if(prevr == 0 || prevr == '\n')
+							continue;
+						break;
+					case EOL:
+						if(r == Beof || r == 0 || r == '\n')
+							goto Bgetre_nongreedy_Addthreadnext;
+						break;
+					case CCLASS:
+						if(inclass(r, inst->u1.cp))
+							goto Bgetre_nongreedy_Addthreadnext;
+						break;
+					case NCCLASS:
+						if(!inclass(r, inst->u1.cp))
+							goto Bgetre_nongreedy_Addthreadnext;
+						break;
+					case OR:
+						if(inst->nongreedy) {
+							/* evaluate right choice now */
+							if(addthread(tlp, nextinst, msize, &tlp->se) == nle)
+								goto Bgetre_nongreedy_Overflow;
+							nextinst = inst->u1.right;
+							continue;
+						}
+
+						/* evaluate right choice later */
+						if(addthread(tlp, inst->u1.right, msize, &tlp->se) == tle)
+							goto Bgetre_nongreedy_Overflow;
+						/* efficiency: advance and re-evaluate */
+						continue;
+					case END: /* Match! */
+						//s[i] = 0;
+						match = 1;
+						tlp->se.m[0].e.ep = s + i;
+						if(mp) savematch(mp, msize, &tlp->se);
+						//goto Bgetre_nongreedy_Return; /* nongreedy */
+				}
+
+				break; /* IMPORTANT BREAK */
+
+			} /* inner thread loop */
+		} /* outer thread loop */
+	} /* file read loop */
+
+	if(overflow) {
+		free(tl);
+		free(nl);
+	}
+
+	/* writeback s and size */
+	s[i] = 0;
+	*wp = s;
+	*wsize = size;
+
+	return i; /* return length of s */
+
+Bgetre_nongreedy_Overflow:
+	if(++overflow == 1) {
+		tmp = calloc(_DYNLEN, sizeof(Relist));
+		memcpy(tmp, tl, tle - tl);
+		for(int i = 0; i < _MAXSUBEXP; ++i)
+			tmp->se.m[i] = tl->se.m[i];
+		tl = tmp;
+
+		tmp = calloc(_DYNLEN, sizeof(Relist));
+		memcpy(tmp, nl, nle - nl);
+		for(int i = 0; i < _MAXSUBEXP; ++i)
+			tmp->se.m[i] = nl->se.m[i];
+		nl = tmp;
+
+		tle = tl + _DYNLEN - 2;
+		nle = nl + _DYNLEN - 2;
+
+		goto Bgetre_nongreedy_Execloop;
+	}
+
+	/* if overflowed twice exit */
+	if(tl)
+		free(tl);
+	if(nl)
+		free(nl);
+
+	fprint(2, "sregexec: overflowed threadlist\n");
+
+	return -1;
+}
+

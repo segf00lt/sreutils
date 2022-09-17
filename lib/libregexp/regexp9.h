@@ -43,7 +43,8 @@ struct Reclass{
  *	Machine instructions
  */
 struct Reinst{
-	int	type;
+	int	type : 10;
+	int	nongreedy : 1;
 	union	{
 		Reclass	*cp;		/* class pointer */
 		Rune	r;		/* character */
