@@ -11,14 +11,18 @@ extern size_t Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, char **wp,
 #define C_COMMENT "/\\*.*\\*/"
 
 int main(void) {
-	Biobuf *bp = Bopen("case/Bgetre", O_RDONLY);
+	Biobuf bp;
+	unsigned char *iobuf = malloc(Bsize);
+	int fd = open("case/Bgetre", O_RDONLY);
+	Binits(&bp, fd, O_RDONLY, iobuf, Bsize);
 	Reprog *re = regcompnl(C_COMMENT);
 	size_t size = 1024;
 	char *buf = malloc(size);
 	size_t len;
-	while((len = Bgetre(bp, re, 0, 0, &buf, &size)) > 0)
+	while((len = Bgetre(&bp, re, 0, 0, &buf, &size)) > 0)
 		write(1, buf, len);
-	Bterm(bp);
+	Bterm(&bp);
+	free(iobuf);
 	free(re);
 	free(buf);
 	return 0;

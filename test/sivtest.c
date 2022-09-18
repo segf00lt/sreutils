@@ -110,7 +110,7 @@ int siv2(Reprog *rearr[REMAX-1], char *data, int depth, int t, Biobuf *outb) {
 
 int main(void) {
 	Reprog *rearr[REMAX];
-	Biobuf *inb, *outb;
+	Biobuf inb, *outb;
 	char *wp;
 	size_t wsize;
 
@@ -119,15 +119,18 @@ int main(void) {
 	rearr[0] = regcompnl(C_FUNC_REGEXP);
 	rearr[1] = regcompnl(C_COMMENT);
 	rearr[2] = regcompnl("submatch");
-	inb = Bopen("case/Bgetre", O_RDONLY);
+	unsigned char *iobuf = malloc(Bsize);
+	int fd = open("case/Bgetre", O_RDONLY);
+	Binits(&inb, fd, O_RDONLY, iobuf, Bsize);
 	outb = Bfdopen(1, O_WRONLY);
 
-	siv(rearr, inb, outb, 2, 0, &wp, &wsize);
+	siv(rearr, &inb, outb, 2, 0, &wp, &wsize);
 
 	for(int i = 0; i < 3; ++i)
 		free(rearr[i]);
 	free(wp);
-	Bterm(inb);
+	free(iobuf);
+	Bterm(&inb);
 	Bterm(outb);
 
 	return 0;

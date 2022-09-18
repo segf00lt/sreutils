@@ -150,10 +150,10 @@ Bgetre(Biobuf *bp, /* file to read */
 	size_t size = *wsize;
 	size_t i = 0; /* position in s */
 
-	//if(bp->flag == Bmagic || bp->bbuf == bp->b) {
-	//	fprint(2, "Bgetre: Biobuf must be created with Binits()\n");
-	//	exit(1);
-	//}
+	if(bp->flag == Bmagic || bp->bbuf == bp->b) {
+		fprint(2, "Bgetre: Biobuf must be created with Binits()\n");
+		exit(1);
+	}
 
 	if(msize > 0 && mp != 0) {
 		for(int i = 0; i < msize; ++i) { /* VERY IMPORTANT savematch() won't work otherwise */
@@ -190,7 +190,7 @@ Bgetre_Execloop:
 			++i; /* if matching step position in s */
 
 		if(i >= size) { /* realloc s if matching */
-			size *= 2;
+			size <<= 1;
 			s = realloc(s, size);
 		}
 
@@ -268,7 +268,6 @@ Bgetre_Return:
 		free(nl);
 	}
 
-	// TODO write content in range [mp->e.ep, s+i] to file buffer
 	if(greedy) {
 		size_t n = s + i - endgreed;
 		assert(n < bp->bsize);
@@ -352,7 +351,6 @@ strgetre(char *str, /* string to read */
 	int overflow = 0;
 	int match = 0;
 	int greedy = 0;
-	//char *endgreed; // TODO is this necessary?
 
 	char *curp, *nextp;
 	char *begin;
@@ -458,7 +456,6 @@ strgetre_Execloop:
 					case END: /* Match! */
 						match = 1;
 						tlp->se.m[0].e.ep = curp; /* ranges are inclusive */
-						//endgreed = curp;
 						if(mp)
 							savematch(mp, msize, &tlp->se);
 						if(!greedy)
