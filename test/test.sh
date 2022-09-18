@@ -34,6 +34,8 @@ unit strgetretest
 unit strgetre_cascade_1
 unit strgetre_cascade_2
 unit sivtest
+unit Bgetre_greedy
+unit strgetre_greedy
 
 rm -f err
 mv -t bin ${testbin[@]}

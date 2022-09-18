@@ -44,7 +44,7 @@ struct Reclass{
  */
 struct Reinst{
 	int	type : 10;
-	int	nongreedy : 1;
+	int	greedy : 1;
 	union	{
 		Reclass	*cp;		/* class pointer */
 		Rune	r;		/* character */

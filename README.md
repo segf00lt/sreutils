@@ -20,7 +20,6 @@ in mind.
 
 ## TODO
 
-- add greedy and non-greedy matches
 - rewrite `siv`
 - refactor build and test systems
 - write `pike`

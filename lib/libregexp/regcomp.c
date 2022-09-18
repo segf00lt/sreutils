@@ -58,7 +58,7 @@ static	Reinst*
 newinst(int t)
 {
 	freep->type = t;
-	freep->nongreedy = 0;
+	freep->greedy = 0;
 	freep->u2.left = 0;
 	freep->u1.right = 0;
 	return freep++;
@@ -98,7 +98,7 @@ operator(int t)
 	if(t != RBRA)
 		pushator(t);
 	lastwasand = FALSE;
-	if(t==STAR || t==QUEST || t==PLUS || t==RBRA || t==NGSTAR || t==NGPLUS)
+	if(t==STAR || t==QUEST || t==PLUS || t==RBRA || t==GSTAR || t==GPLUS)
 		lastwasand = TRUE;	/* these look like operands */
 }
 
@@ -203,22 +203,22 @@ evaluntil(int pri)
 			op1->last->u2.next = op2->first;
 			pushand(op1->first, op2->last);
 			break;
-		case NGSTAR:
+		case GSTAR:
 		case STAR:
 			op2 = popand('*');
 			inst1 = newinst(OR);
-			if(t == NGSTAR)
-				inst1->nongreedy = 1;
+			if(t == GSTAR)
+				inst1->greedy = 1;
 			op2->last->u2.next = inst1;
 			inst1->u1.right = op2->first;
 			pushand(inst1, inst1);
 			break;
-		case NGPLUS:
+		case GPLUS:
 		case PLUS:
 			op2 = popand('+');
 			inst1 = newinst(OR);
-			if(t == NGPLUS)
-				inst1->nongreedy = 1;
+			if(t == GPLUS)
+				inst1->greedy = 1;
 			op2->last->u2.next = inst1;
 			inst1->u1.right = op2->first;
 			pushand(op2->first, inst1);
@@ -370,17 +370,17 @@ lex(int literal, int dot_type)
 	case 0:
 		return END;
 	case '*':
-		if(utfrune(exprp, '?') == exprp) {
+		if(utfrune(exprp, '*') == exprp) {
 			++exprp;
-			return NGSTAR;
+			return GSTAR;
 		}
 		return STAR;
 	case '?':
 		return QUEST;
 	case '+':
-		if(utfrune(exprp, '?') == exprp) {
+		if(utfrune(exprp, '*') == exprp) {
 			++exprp;
-			return NGPLUS;
+			return GPLUS;
 		}
 		return PLUS;
 	case '|':

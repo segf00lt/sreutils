@@ -10,13 +10,13 @@ Bread(Biobuf *bp, void *ap, long count)
 
 	p = ap;
 	c = count;
-	ic = bp->icount;
+	ic = bp->icount; // negative number of bytes at end of buffer
 
 	while(c > 0) {
 		n = -ic;
-		if(n > c)
+		if(n > c) // there's stuff in the buffer
 			n = c;
-		if(n == 0) {
+		if(n == 0) { // buffer is empty
 			if(bp->state != Bractive)
 				break;
 			i = read(bp->fid, bp->bbuf, bp->bsize);
