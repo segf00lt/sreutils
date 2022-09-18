@@ -273,7 +273,8 @@ Bgetre_Return:
 		assert(n < bp->bsize);
 		if(n >= bp->bsize) {
 			bp->bsize <<= 1;
-			bp->bbuf = realloc(bp->bbuf, bp->bsize);
+			bp->bbuf = realloc(bp->bbuf - Bungetsize, bp->bsize);
+			bp->bbuf += Bungetsize; /* IMPORTANT */
 			bp->ebuf = bp->bbuf + bp->bsize;
 		}
 		bp->icount = -n;

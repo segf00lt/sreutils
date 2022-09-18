@@ -20,7 +20,6 @@ in mind.
 
 ## TODO
 
-- rewrite `siv`
 - refactor build and test systems
 - write `pike`
 - write `auk`

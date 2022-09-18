@@ -11,24 +11,18 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
-
 #include <utf.h>
 #include <fmt.h>
 #include <regexp9.h>
 #include <bio.h>
-
-#include "sregexec.h"
 
 #define USAGE "usage: %s [-rlh] [-e expression] [-t [0-9]] [expression] [files...]\n"
 #define REMAX 10
 #define STATIC_DEPTH 32
 #define DYNAMIC_DEPTH 128
 
-typedef struct {
-	Sresub *p;
-	size_t l;
-	size_t c;
-} Sresubarr;
+extern size_t Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, char **wp, size_t *wsize);
+extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
 
 typedef struct {
 	char *cp;
@@ -37,13 +31,18 @@ typedef struct {
 
 char *name;
 char path[PATH_MAX + 1];
-Biobuf *bp;
+unsigned char *inputbuf;
+Biobuf inb, outb;
 Reprog *progarr[REMAX];
-Sresubarr data[REMAX];
-Sresubarr sarr;
 Rframe sstack[STATIC_DEPTH];
 Rframe *dstack;
 Rframe *stack;
+
+/* siv stuff */
+char *wp;
+size_t wsize;
+int depth;
+
 struct dirent *ent;
 struct stat buf;
 int d; /* depth in directory recursion stack */
@@ -52,16 +51,6 @@ int t; /* target index TODO: change name */
 int n; /* number of expressions */
 int recur;
 int locat;
-
-size_t
-Bfsize(Biobuf *bp)
-{
-	int fd = Bfildes(bp);
-	struct stat s;
-
-	fstat(fd, &s);
-	return s.st_size;
-}
 
 char*
 escape(char *s)
@@ -118,115 +107,49 @@ escape(char *s)
 	return s;
 }
 
-void
-extract(Reprog *progp,
-		Biobuf *bp,
-		Sresub *range, /* range in bp */
-		Sresubarr *arr, /* match array */
-		size_t i) /* start index in arr */
-{
-	Sresub r = *range;
-	long l;
-	int flag = 0;
+/* TODO add locate */
+void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char **wp, size_t *wsize) {
+	Resub stack[REMAX-2];
+	Resub range, target;
+	Reprog *base, **arr;
+	size_t wlen;
+	int i;
 
-	if(arr->c == 0) {
-		arr->c = 16;
-		arr->p = malloc(16 * sizeof(Sresub));
-	}
+	--depth; /* sub 1 because stack is only used starting from second regex */
+	base = *rearr;
+	arr = rearr + 1;
 
-	while(sregexec(progp, bp, &r, 1) > 0) {
-		if(i >= arr->c)
-			arr->p = realloc(arr->p, (arr->c *= 2) * sizeof(Sresub));
+	while((wlen = Bgetre(inb, base, 0, 0, wp, wsize)) > 0) {
+		stack[0] = (Resub){0};
+		i = 0;
 
-		if(r.s == r.e && r.e <= range->e)
-			flag = 1;
+		while(i >= 0) {
+			range = stack[i];
 
-		Bungetrune(bp);
-		l = runelen(Bgetrune(bp));
-		arr->p[i++] = r;
-		r.s = r.e + l * flag;
-		r.e = range->e;
-	}
-
-	arr->l = i;
-}
-
-/* TODO: need a good profiler to test speed */
-int
-siv(Biobuf *bp,
-	Reprog *progarr[REMAX],
-	Sresubarr data[REMAX],
-	int n) /* number of layers */
-{
-	Sresubarr *ap0, *ap1;
-	Sresub *r0, *r1, *w0, *w1, *e0, *e1;
-	Sresub range;
-
-	range = (Sresub){ .s = 0, .e = Bfsize(bp) };
-
-	/* extract matches */
-	for(int i = 0; i < n; ++i) {
-		extract(progarr[i], bp, &range, &data[i], 0);
-		if(data[i].l == 0)
-			return 0;
-	}
-
-	for(int i = 1; i < n; ++i) {
-		ap0 = &data[i - 1];
-		ap1 = &data[i];
-		r0 = w0 = ap0->p;
-		r1 = w1 = ap1->p;
-		e0 = ap0->p + ap0->l;
-		e1 = ap1->p + ap1->l;
-
-		while(r1 < e1 && r0 < e0) {
-			if(r1->s > r0->e) {
-				++r0;
-				continue;
-			} else if(r1->s < r0->s || r1->e > r0->e) {
-				++r1;
+			if(depth >= 0 && !strgetre(*wp, arr[i], &range, 1)) {
+				--i;
 				continue;
 			}
 
-			while(r1 < e1 && r1->e <= r0->e)
-				*(w1++) = *(r1++);
+			if(t != 0 && i == t) /* don't save range if target is at base */
+				target = range;
 
-			*(w0++) = *(r0++);
+			stack[i].s.sp = range.e.ep;
+
+			if(i < depth) {
+				stack[++i] = range;
+				continue;
+			}
+
+			if(t == 0) {
+				Bwrite(outb, *wp, wlen);
+				break;
+			}
+
+			Bwrite(outb, target.s.sp, target.e.ep - target.s.sp);
+
+			i = t;
 		}
-
-		ap0->l = w0 - ap0->p;
-		ap1->l = w1 - ap1->p;
-	}
-
-	return 1;
-}
-
-void
-output(void)
-{
-	Sresubarr sarr;
-	Sresub *sp;
-	long r;
-	long pos;
-
-	sarr = data[t];
-	r = 0;
-
-	for(int i = 0; i < sarr.l; ++i) {
-		sp = &sarr.p[i];
-
-		if(locat)
-			print("==\n@@ %s,%li,%li @@\n==\n", path, sp->s, sp->e);
-
-		pos = sp->s;
-		Bseek(bp, pos, 0);
-
-		do {
-			r = Bgetrune(bp);
-			if(r > 0)
-				print("%C", r);
-			pos += runelen(r);
-		} while(pos < sp->e);
 	}
 }
 
@@ -238,13 +161,13 @@ cleanup(void)
 	for(i = 0; i < n; ++i)
 		free(progarr[i]);
 
-	for(i = 0; i < n; ++i)
-		free(data[i].p);
-
 	if(dstack)
 		free(dstack);
 
-	free(bp);
+	free(inb.bbuf - Bungetsize);
+	free(wp);
+	Bterm(&inb);
+	Bterm(&outb);
 }
 
 int
@@ -258,7 +181,11 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	bp = malloc(sizeof(Biobuf));
+	inputbuf = malloc(Bsize);
+	wp = malloc((wsize = 1024));
+	inb.bbuf = inputbuf;
+	inb.bsize = Bsize;
+	Binit(&outb, 1, O_WRONLY);
 	stack = sstack;
 	dstack = 0;
 	fd = 0;
@@ -324,12 +251,12 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	/* TODO: reading stdin from pipes doesn't work */
+	depth = n - 1; /* set max depth for siv */
+
 	if(optind == argc) {
-		Binit(bp, 0, O_RDONLY);
+		Binits(&inb, 0, O_RDONLY, inputbuf, Bsize);
 		strcpy(path, "<stdin>");
-		if(siv(bp, progarr, data, n))
-			output();
+		siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
 		cleanup();
 		return 0;
 	}
@@ -348,9 +275,8 @@ main(int argc, char *argv[])
 		fstat(fd, &buf);
 
 		if(!S_ISDIR(buf.st_mode)) {
-			Binit(bp, fd, O_RDONLY);
-			if(siv(bp, progarr, data, n))
-				output();
+			Binits(&inb, fd, O_RDONLY, inb.bbuf, inb.bsize);
+			siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
 			close(fd);
 			continue;
 		}
@@ -389,9 +315,8 @@ main(int argc, char *argv[])
 
 				if(ent->d_type == DT_REG) {
 					fd = open(path, O_RDONLY);
-					Binit(bp, fd, O_RDONLY);
-					if(siv(bp, progarr, data, n))
-						output();
+					Binits(&inb, fd, O_RDONLY, inb.bbuf, inb.bsize);
+					siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
 					close(fd);
 				}
 			}

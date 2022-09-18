@@ -119,6 +119,7 @@ int main(void) {
 	rearr[0] = regcompnl(C_FUNC_REGEXP);
 	rearr[1] = regcompnl(C_COMMENT);
 	rearr[2] = regcompnl("submatch");
+
 	unsigned char *iobuf = malloc(Bsize);
 	int fd = open("case/Bgetre", O_RDONLY);
 	Binits(&inb, fd, O_RDONLY, iobuf, Bsize);

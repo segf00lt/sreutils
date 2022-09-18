@@ -4,7 +4,7 @@ INCLUDEPATH = lib/include
 LINKPATH = lib/link
 
 siv: lib
-	$(CC) $(CFLAGS) siv.c \
+	$(CC) $(CFLAGS) siv.c structregex.c \
 		-o siv \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lbio -lregexp9 -lfmt -lutf
