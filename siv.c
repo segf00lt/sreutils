@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <stdarg.h>
 #include <utf.h>
 #include <fmt.h>
 #include <regexp9.h>
@@ -47,14 +48,21 @@ struct dirent *ent;
 struct stat buf;
 int d; /* depth in directory recursion stack */
 int fd;
-int t; /* target index TODO: change name */
+int t;
 int n; /* number of expressions */
 int recur;
 int locat;
 
-char*
-escape(char *s)
-{
+void myerror(char *fmt, ...) {
+	va_list args;
+
+	va_start(args, fmt);
+	vfprint(2, fmt, args);
+	va_end(args);
+	exit(1);
+}
+
+char* escape(char *s) {
 	int i, j;
 	for(i = 0, j = 0; s[i]; ++i, ++j) {
 		if(s[i] != '\\') {
@@ -107,11 +115,13 @@ escape(char *s)
 	return s;
 }
 
-/* TODO add locate */
 void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char **wp, size_t *wsize) {
 	Resub stack[REMAX-2];
+	char locatbuf[256];
 	Resub range, target;
 	Reprog *base, **arr;
+	long offset, start, end;
+	int locatlen;
 	size_t wlen;
 	int i;
 
@@ -120,6 +130,9 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	arr = rearr + 1;
 
 	while((wlen = Bgetre(inb, base, 0, 0, wp, wsize)) > 0) {
+		offset = Boffset(inb);
+		start = offset - wlen;
+		end = offset - 1;
 		stack[0] = (Resub){0};
 		i = 0;
 
@@ -131,14 +144,22 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 				continue;
 			}
 
-			if(t != 0 && i == t) /* don't save range if target is at base */
+			if(t != 0 && (i + 1) == t) { /* don't save range if target is at base */
 				target = range;
+				start += range.s.sp - *wp;
+				end -= *wp + wlen - range.e.ep - 1;
+			}
 
 			stack[i].s.sp = range.e.ep;
 
 			if(i < depth) {
 				stack[++i] = range;
 				continue;
+			}
+
+			if(locat) {
+				locatlen = sprint(locatbuf, "@@ %s,%li,%li @@", path, start, end);
+				Bwrite(outb, locatbuf, locatlen);
 			}
 
 			if(t == 0) {
@@ -148,14 +169,12 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 
 			Bwrite(outb, target.s.sp, target.e.ep - target.s.sp);
 
-			i = t;
+			i = t - 1; /* remember that i is offset from actual regexp index */
 		}
 	}
 }
 
-void
-cleanup(void)
-{
+void cleanup(void) {
 	int i;
 
 	for(i = 0; i < n; ++i)
@@ -164,22 +183,22 @@ cleanup(void)
 	if(dstack)
 		free(dstack);
 
-	free(inb.bbuf - Bungetsize);
+	if(inb.bbuf == inputbuf)
+		free(inputbuf);
+	else
+		free(inb.bbuf - Bungetsize);
 	free(wp);
 	Bterm(&inb);
 	Bterm(&outb);
 }
 
-int
-main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	name = argv[0];
 
-	if(argc == 1) {
-		fprint(2, "%s: no options given\n", name);
-		fprint(2, USAGE, name);
-		return 1;
-	}
+	if(argc == 1)
+		myerror("%s: no options given\n%s", name, USAGE);
+
+	atexit(cleanup);
 
 	inputbuf = malloc(Bsize);
 	wp = malloc((wsize = 1024));
@@ -198,17 +217,11 @@ main(int argc, char *argv[])
 	for(optind = 1; optind < argc && argv[optind][0] == '-'; ++optind) {
 		switch(argv[optind][1]) {
 			case 'e':
-				if(++optind == argc) {
-					fprint(2, "%s: '-e' requires an argument\n", name);
-					cleanup();
-					return 1;
-				}
+				if(++optind == argc)
+					myerror("%s: '-e' requires an argument\n", name);
 
-				if(n >= REMAX) {
-					fprint(2, "%s: too expressions given\n", name);
-					cleanup();
-					return 1;
-				}
+				if(n >= REMAX)
+					myerror("%s: too expressions given\n", name);
 
 				progarr[n++] = regcompnl(escape(argv[optind]));
 				break;
@@ -219,23 +232,15 @@ main(int argc, char *argv[])
 				locat = 1;
 				break;
 			case 't':
-				if(++optind == argc) {
-					fprint(2, "%s: '-t' requires an argument\n", name);
-					cleanup();
-					return 1;
-				}
+				if(++optind == argc)
+					myerror("%s: '-t' requires an argument\n", name);
 
 				t = atoi(argv[optind]);
 				break;
 			case 'h':
-				fprint(2, USAGE, name);
-				cleanup();
-				return 1;
+				myerror(USAGE, name);
 			default:
-				fprint(2, "%s: unknown option %s\n", name, argv[optind]);
-				fprint(2, USAGE, name);
-				cleanup();
-				return 1;
+				myerror("%s: unknown option %s\n%s", name, argv[optind], USAGE);
 		}
 	}
 
@@ -245,11 +250,8 @@ main(int argc, char *argv[])
 	if(t < 0)
 		t += n > 1 ? n : 2;
 
-	if(t > n - 1) {
-		fprint(2, "%s: index %i out of range\n", name, t);
-		cleanup();
-		return 1;
-	}
+	if(t > n - 1)
+		myerror("%s: index %i out of range\n", name, t);
 
 	depth = n - 1; /* set max depth for siv */
 
@@ -257,7 +259,6 @@ main(int argc, char *argv[])
 		Binits(&inb, 0, O_RDONLY, inputbuf, Bsize);
 		strcpy(path, "<stdin>");
 		siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
-		cleanup();
 		return 0;
 	}
 
@@ -266,8 +267,7 @@ main(int argc, char *argv[])
 
 		if(fd < 0) {
 			fprint(2, "%s: %s: no such file or directory\n", name, argv[optind]);
-			cleanup();
-			return 1;
+			continue;
 		}
 
 		strcpy(path, argv[optind]);
@@ -325,6 +325,5 @@ main(int argc, char *argv[])
 		}
 	}
 
-	cleanup();
 	return 0;
 }
