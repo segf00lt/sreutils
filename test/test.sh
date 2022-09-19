@@ -33,9 +33,12 @@ unit Bgetre_pipe 'cat case/Bgetre | ./Bgetre_pipe.bin' 'expect/Bgetre_cfunc'
 unit strgetretest
 unit strgetre_cascade_1
 unit strgetre_cascade_2
-unit sivtest
+unit sivfunctest
 unit Bgetre_greedy
 unit strgetre_greedy
+unit siv_comment
+unit siv_comment_greedy
+unit siv_cfunc
 
 rm -f err
 mv -t bin ${testbin[@]}

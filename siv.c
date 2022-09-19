@@ -22,8 +22,8 @@
 #define STATIC_DEPTH 32
 #define DYNAMIC_DEPTH 128
 
-extern size_t Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, char **wp, size_t *wsize);
-extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
+extern size_t Bgetre(Biobuf *, Reprog *, Resub *, int, long *, long *, char **, size_t *);
+extern int strgetre(char *, Reprog *, Resub *, int);
 
 typedef struct {
 	char *cp;
@@ -120,7 +120,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	char locatbuf[256];
 	Resub range, target;
 	Reprog *base, **arr;
-	long offset, start, end;
+	long start, end;
 	int locatlen;
 	size_t wlen;
 	int i;
@@ -129,10 +129,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	base = *rearr;
 	arr = rearr + 1;
 
-	while((wlen = Bgetre(inb, base, 0, 0, wp, wsize)) > 0) {
-		offset = Boffset(inb);
-		start = offset - wlen;
-		end = offset - 1;
+	while((wlen = Bgetre(inb, base, 0, 0, &start, &end, wp, wsize)) > 0) {
 		stack[0] = (Resub){0};
 		i = 0;
 
@@ -147,6 +144,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 			if(t != 0 && (i + 1) == t) { /* don't save range if target is at base */
 				target = range;
 				start += range.s.sp - *wp;
+				//TODO
 				end -= *wp + wlen - range.e.ep - 1;
 			}
 

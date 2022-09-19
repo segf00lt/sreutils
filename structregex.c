@@ -115,6 +115,8 @@ Bgetre(Biobuf *bp, /* file to read */
 	Reprog *progp, /* regexp used */
 	Resub *mp, /* submatch array */
 	int msize, /* mp capacity */
+	long *offstart, /* offset for start of match */
+	long *offend, /* offset for end of match */
 	char **wp, /* addr of buffer to store main match */
 	size_t *wsize) /* addr of var to store size of wp */
 {
@@ -133,6 +135,8 @@ Bgetre(Biobuf *bp, /* file to read */
 
 	Resublist sl;
 
+	long start;
+	long end;
 
 	Rune r;
 	Rune prevr;
@@ -185,6 +189,7 @@ Bgetre_Execloop:
 		if(match == 0 && tl->inst == 0) { /* restart until progress is made or match is found */
 			i = 0;
 			sl.m[0].s.sp = s;
+			start = Boffset(bp);
 			addthread(tl, progp->startinst, msize, &sl);
 		} else
 			++i; /* if matching step position in s */
@@ -250,6 +255,7 @@ Bgetre_Execloop:
 						match = 1;
 						tlp->se.m[0].e.ep = s + i;
 						endgreed = s + i;
+						end = Boffset(bp) - 1;
 						if(mp)
 							savematch(mp, msize, &tlp->se);
 						if(!greedy)
@@ -270,7 +276,6 @@ Bgetre_Return:
 
 	if(greedy) {
 		size_t n = s + i - endgreed;
-		assert(n < bp->bsize);
 		if(n >= bp->bsize) {
 			bp->bsize <<= 1;
 			bp->bbuf = realloc(bp->bbuf - Bungetsize, bp->bsize);
@@ -284,6 +289,10 @@ Bgetre_Return:
 	}
 
 	/* writeback s and size */
+	if(offstart)
+		*offstart = start;
+	if(offend)
+		*offend = end;
 	s[i] = 0;
 	*wp = s;
 	*wsize = size;

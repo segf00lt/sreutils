@@ -1,0 +1,33 @@
+@@ case/Bgetre,234,263 @@/* this comment will match */
+@@ case/Bgetre,299,325 @@/* end is non inclusive */
+@@ case/Bgetre,829,853 @@/* character to match */
+@@ case/Bgetre,867,888 @@/* character class */
+@@ case/Bgetre,1023,1205 @@/*
+ * Note optimization in addthread (taken from _renewthread):
+ * 	*lp must be pending when _renewthread called; if *l has been looked
+ *		at already, the optimization is a bug.
+ */
+@@ case/Bgetre,1245,1265 @@/* list to add to */
+@@ case/Bgetre,1279,1303 @@/* instruction to add */
+@@ case/Bgetre,1330,1350 @@/* subexpressions */
+@@ case/Bgetre,1976,2094 @@/* structural regex execution is performed on a file (or Biobuf in this case)
+ * as opposed to an in memory string
+ */
+@@ case/Bgetre,2123,2150 @@/* regex prog to execute */
+@@ case/Bgetre,2164,2189 @@/* file buffer to read */
+@@ case/Bgetre,2203,2231 @@/* subexpression elements */
+@@ case/Bgetre,2241,2264 @@/* num of elem in mp */
+@@ case/Bgetre,2593,2633 @@/* used for reinitializing submatches */
+@@ case/Bgetre,2997,3060 @@/* counts number of times tl and/or nl's capacity is reached */
+@@ case/Bgetre,3100,3117 @@/* go to start */
+@@ case/Bgetre,3203,3241 @@/* skip to first character in progp */
+@@ case/Bgetre,3323,3339 @@/* swap lists */
+@@ case/Bgetre,3467,3521 @@/* restart until progress is made or match is found */
+@@ case/Bgetre,4555,4588 @@/* evaluate right choice later */
+@@ case/Bgetre,4679,4720 @@/* efficiency: advance and re-evaluate */
+@@ case/Bgetre,4752,4764 @@/* Match! */
+@@ case/Bgetre,4883,4934 @@/* non-greedy match makes multi-line exp simpler */
+@@ case/Bgetre,4957,4980 @@/* inner thread loop */
+@@ case/Bgetre,4985,5008 @@/* outer thread loop */
+@@ case/Bgetre,5040,5060 @@/* file read loop */
+@@ case/Bgetre,5542,5572 @@/* if overflowed twice exit */
