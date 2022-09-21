@@ -20,7 +20,8 @@ in mind.
 
 ## TODO
 
-- add ability to set default behaviour of repetitions to greedy of non-greedy
+- add look-ahead and look-behind
+- add negated group
 - refactor build and test systems
 - write `pike`
 - write `auk`

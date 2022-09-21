@@ -36,6 +36,7 @@ static	Reinst*	freep;
 static	int	errors;
 static	Rune	yyrune;		/* last lex'd rune */
 static	Reclass*yyclassp;	/* last lex'd class */
+static	int	greedy;
 
 /* predeclared crap */
 static	void	operator(int);
@@ -204,21 +205,29 @@ evaluntil(int pri)
 			pushand(op1->first, op2->last);
 			break;
 		case GSTAR:
+		case NGSTAR:
 		case STAR:
 			op2 = popand('*');
 			inst1 = newinst(OR);
+			inst1->greedy = greedy;
 			if(t == GSTAR)
 				inst1->greedy = 1;
+			else if(t == NGSTAR)
+				inst1->greedy = 0;
 			op2->last->u2.next = inst1;
 			inst1->u1.right = op2->first;
 			pushand(inst1, inst1);
 			break;
 		case GPLUS:
+		case NGPLUS:
 		case PLUS:
 			op2 = popand('+');
 			inst1 = newinst(OR);
+			inst1->greedy = greedy;
 			if(t == GPLUS)
 				inst1->greedy = 1;
+			else if(t == NGPLUS)
+				inst1->greedy = 0;
 			op2->last->u2.next = inst1;
 			inst1->u1.right = op2->first;
 			pushand(op2->first, inst1);
@@ -374,6 +383,10 @@ lex(int literal, int dot_type)
 			++exprp;
 			return GSTAR;
 		}
+		if(utfrune(exprp, '?') == exprp) {
+			++exprp;
+			return NGSTAR;
+		}
 		return STAR;
 	case '?':
 		return QUEST;
@@ -381,6 +394,10 @@ lex(int literal, int dot_type)
 		if(utfrune(exprp, '*') == exprp) {
 			++exprp;
 			return GPLUS;
+		}
+		if(utfrune(exprp, '?') == exprp) {
+			++exprp;
+			return NGPLUS;
 		}
 		return PLUS;
 	case '|':
@@ -563,6 +580,7 @@ out:
 extern	Reprog*
 regcomp(char *s)
 {
+	greedy = 0;
 	return regcomp1(s, 0, ANY);
 }
 
@@ -575,5 +593,20 @@ regcomplit(char *s)
 extern	Reprog*
 regcompnl(char *s)
 {
+	greedy = 0;
+	return regcomp1(s, 0, ANYNL);
+}
+
+extern	Reprog*
+regcompg(char *s, int g)
+{
+	greedy = g; /* if 1 * and + are greedy, else * and + are non-greedy */
+	return regcomp1(s, 0, ANY);
+}
+
+extern	Reprog*
+regcompnlg(char *s, int g)
+{
+	greedy = g; /* if 1 * and + are greedy, else * and + are non-greedy */
 	return regcomp1(s, 0, ANYNL);
 }

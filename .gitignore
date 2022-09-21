@@ -1,6 +1,6 @@
 siv
 *.bin
-bin/*
+test/bin/*
 sregexec.h
 stb_ds.h
 lib/include

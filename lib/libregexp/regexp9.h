@@ -69,6 +69,8 @@ struct Reprog{
 extern Reprog	*regcomp9(char*);
 extern Reprog	*regcomplit9(char*);
 extern Reprog	*regcompnl9(char*);
+extern Reprog	*regcompg(char *, int);
+extern Reprog	*regcompnlg(char *, int);
 extern void	regerror9(char*);
 extern int	regexec9(Reprog*, char*, Resub*, int);
 extern void	regsub9(char*, char*, int, Resub*, int);

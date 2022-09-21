@@ -32,6 +32,8 @@ struct	Resublist
 #define	QUEST		0207	/* a? == a|nothing, i.e. 0 or 1 a's */
 #define	GSTAR		0210	/* greedy */
 #define	GPLUS		0211
+#define	NGSTAR		0212	/* non-greedy */
+#define	NGPLUS		0213
 #define	ANY		0300	/* Any character except newline, . */
 #define	ANYNL		0301	/* Any character including newline, . */
 #define	NOP		0302	/* No operation, internal use only */

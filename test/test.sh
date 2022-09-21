@@ -39,6 +39,7 @@ unit strgetre_greedy
 unit siv_comment
 unit siv_comment_greedy
 unit siv_cfunc
+unit greedy_default
 
 rm -f err
 mv -t bin ${testbin[@]}
