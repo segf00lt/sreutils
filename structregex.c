@@ -275,13 +275,25 @@ Bgetre_Return:
 	}
 
 	if(greedy) {
-		size_t n = s + i - endgreed;
+		register size_t n = s + i - endgreed;
+
 		if(n >= bp->bsize) {
-			bp->bsize <<= 1;
+			register size_t newsize = n + Bungetsize;
+			/* round newsize up to closest power of 2 */
+			--newsize;
+			newsize |= (newsize >> 1);
+			newsize |= (newsize >> 2);
+			newsize |= (newsize >> 4);
+			newsize |= (newsize >> 8);
+			newsize |= (newsize >> 16);
+			newsize |= (newsize >> 32);
+			++newsize;
+			bp->bsize = newsize;
 			bp->bbuf = realloc(bp->bbuf - Bungetsize, bp->bsize);
-			bp->bbuf += Bungetsize; /* IMPORTANT */
 			bp->ebuf = bp->bbuf + bp->bsize;
+			bp->bbuf += Bungetsize; /* IMPORTANT */
 		}
+
 		bp->icount = -n;
 		bp->gbuf = bp->ebuf + bp->icount;
 		memcpy(bp->gbuf, endgreed, n);
