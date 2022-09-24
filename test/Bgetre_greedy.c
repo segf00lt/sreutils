@@ -6,7 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 
-extern size_t Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, long*, long*, char **wp, size_t *wsize);
+extern size_t Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, char **wp, size_t *wsize);
 
 // a** and a+* are greedy, a* and a+ are non-greedy
 #define C_COMMENT "/\\*.**\\*/$"
@@ -20,7 +20,7 @@ int main(void) {
 	size_t size = 1024;
 	char *buf = malloc(size);
 	size_t len;
-	while((len = Bgetre(&bp, re, 0, 0, 0, 0, &buf, &size)) > 0)
+	while((len = Bgetre(&bp, re, 0, 0, &buf, &size)) > 0)
 		write(1, buf, len);
 	Bterm(&bp);
 	free(iobuf);

@@ -4,8 +4,10 @@ DEBUG = $(CFLAGS) -g -fsanitize=address
 INCLUDEPATH = lib/include
 LINKPATH = lib/link
 
+all: lib test siv
+
 siv: lib
-	$(CC) $(CFLAGS) siv.c structregex.c \
+	$(CC) $(CFLAGS) -g siv.c structregex.c \
 		-o siv \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lbio -lregexp9 -lfmt -lutf
@@ -20,4 +22,4 @@ test:
 lib:
 	cd lib; ./buildlib.sh; cd ..;
 
-.PHONY: siv test lib
+.PHONY: all siv test lib

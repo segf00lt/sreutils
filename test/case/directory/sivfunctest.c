@@ -12,7 +12,7 @@
 
 
 extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
-extern size_t Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, char **wp, size_t *wsize);
+extern size_t Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, long*, long*, char **wp, size_t *wsize);
 
 void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char **wp, size_t *wsize);
 void siv1(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char **wp, size_t *wsize);
@@ -29,7 +29,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	base = *rearr;
 	arr = rearr + 1;
 
-	while((wlen = Bgetre(inb, base, 0, 0, wp, wsize)) > 0) {
+	while((wlen = Bgetre(inb, base, 0, 0, 0, 0, wp, wsize)) > 0) {
 		stack[0] = (Resub){0};
 		i = 0;
 
@@ -66,7 +66,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 void siv1(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char **wp, size_t *wsize) {
 	size_t wlen;
 
-	while((wlen = Bgetre(inb, rearr[0], 0, 0, wp, wsize)) > 0)
+	while((wlen = Bgetre(inb, rearr[0], 0, 0, 0, 0, wp, wsize)) > 0)
 		if(siv2(rearr+1, *wp, depth - 1, t, outb))
 			Bwrite(outb, *wp, wlen);
 }

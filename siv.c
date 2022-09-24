@@ -22,7 +22,7 @@
 #define STATIC_DEPTH 32
 #define DYNAMIC_DEPTH 128
 
-extern size_t Bgetre(Biobuf *, Reprog *, Resub *, int, long *, long *, char **, size_t *);
+extern size_t Bgetre(Biobuf *, Reprog *, Resub *, int, char **, size_t *);
 extern int strgetre(char *, Reprog *, Resub *, int);
 
 typedef struct {
@@ -32,7 +32,6 @@ typedef struct {
 
 char *name;
 char path[PATH_MAX + 1];
-unsigned char *inputbuf;
 Biobuf inb, outb;
 Reprog *progarr[REMAX];
 Rframe sstack[STATIC_DEPTH];
@@ -120,7 +119,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	char locatbuf[256];
 	Resub range, target;
 	Reprog *base, **arr;
-	long start, end;
+	long start, end, offset;
 	int locatlen;
 	size_t wlen;
 	int i;
@@ -129,7 +128,10 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	base = *rearr;
 	arr = rearr + 1;
 
-	while((wlen = Bgetre(inb, base, 0, 0, &start, &end, wp, wsize)) > 0) {
+	while((wlen = Bgetre(inb, base, 0, 0, wp, wsize)) > 0) {
+		offset = Boffset(inb);
+		start = offset - wlen;
+		end = offset - inb->runesize;
 		stack[0] = (Resub){0};
 		i = 0;
 
@@ -144,7 +146,6 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 			if(t != 0 && (i + 1) == t) { /* don't save range if target is at base */
 				target = range;
 				start += range.s.sp - *wp;
-				//TODO
 				end -= *wp + wlen - range.e.ep - 1;
 			}
 
@@ -173,7 +174,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 }
 
 void cleanup(void) {
-	int i;
+	register int i;
 
 	for(i = 0; i < n; ++i)
 		free(progarr[i]);
@@ -181,10 +182,7 @@ void cleanup(void) {
 	if(dstack)
 		free(dstack);
 
-	if(inb.bbuf == inputbuf)
-		free(inputbuf);
-	else
-		free(inb.bbuf - Bungetsize);
+	free(inb.bbuf - Bungetsize);
 	free(wp);
 	Bterm(&inb);
 	Bterm(&outb);
@@ -198,10 +196,9 @@ int main(int argc, char *argv[]) {
 
 	atexit(cleanup);
 
-	inputbuf = malloc(Bsize);
+	inb.bbuf = (unsigned char *)(malloc(Bsize)) + Bungetsize;
+	inb.bsize = Bsize - Bungetsize;
 	wp = malloc((wsize = 1024));
-	inb.bbuf = inputbuf;
-	inb.bsize = Bsize;
 	Binit(&outb, 1, O_WRONLY);
 	stack = sstack;
 	dstack = 0;
@@ -254,7 +251,7 @@ int main(int argc, char *argv[]) {
 	depth = n - 1; /* set max depth for siv */
 
 	if(optind == argc) {
-		Binits(&inb, 0, O_RDONLY, inputbuf, Bsize);
+		Binits(&inb, 0, O_RDONLY, inb.bbuf - Bungetsize, inb.bsize + Bungetsize);
 		strcpy(path, "<stdin>");
 		siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
 		return 0;
@@ -273,7 +270,7 @@ int main(int argc, char *argv[]) {
 		fstat(fd, &buf);
 
 		if(!S_ISDIR(buf.st_mode)) {
-			Binits(&inb, fd, O_RDONLY, inb.bbuf, inb.bsize);
+			Binits(&inb, fd, O_RDONLY, inb.bbuf - Bungetsize, inb.bsize + Bungetsize);
 			siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
 			close(fd);
 			continue;
@@ -313,7 +310,7 @@ int main(int argc, char *argv[]) {
 
 				if(ent->d_type == DT_REG) {
 					fd = open(path, O_RDONLY);
-					Binits(&inb, fd, O_RDONLY, inb.bbuf, inb.bsize);
+					Binits(&inb, fd, O_RDONLY, inb.bbuf - Bungetsize, inb.bsize + Bungetsize);
 					siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
 					close(fd);
 				}

@@ -40,6 +40,7 @@ unit siv_comment
 unit siv_comment_greedy
 unit siv_cfunc
 unit greedy_default
+unit siv_recurse_directory
 
 rm -f err
 mv -t bin ${testbin[@]}
