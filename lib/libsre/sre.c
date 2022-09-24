@@ -135,7 +135,7 @@ Bgetre(Biobuf *bp, /* file to read */
 
 	Resublist sl;
 
-	long start, end;
+	long start, end, offset;
 
 	Rune r;
 	Rune prevr;
@@ -147,6 +147,7 @@ Bgetre(Biobuf *bp, /* file to read */
 	int overflow = 0;
 	int match = 0;
 	int greedy = 0;
+
 	char *endgreed;
 
 	char *s = *wp;
@@ -169,6 +170,7 @@ Bgetre_Execloop:
 	while(r != Beof) {
 		prevr = r;
 		r = Bgetrune(bp);
+		offset = Boffset(bp);
 
 		/* skip to first character in progp */
 		if(startchar && nl->inst == 0 && startchar != r && r != Beof) {
@@ -188,7 +190,7 @@ Bgetre_Execloop:
 		if(match == 0 && tl->inst == 0) { /* restart until progress is made or match is found */
 			i = 0;
 			sl.m[0].s.sp = s;
-			start = Boffset(bp);
+			start = offset;
 			addthread(tl, progp->startinst, msize, &sl);
 		} else
 			++i; /* if matching step position in s */
@@ -254,7 +256,9 @@ Bgetre_Execloop:
 						match = 1;
 						tlp->se.m[0].e.ep = s + i;
 						endgreed = s + i;
-						end = Boffset(bp) - bp->runesize;
+						end = offset - bp->runesize;
+						if(r == Beof)
+							end = offset;
 						if(mp)
 							savematch(mp, msize, &tlp->se);
 						if(!greedy)
@@ -299,10 +303,20 @@ Bgetre_Return:
 		i -= n;
 	}
 
+	if(start == end && r != Beof) { /* inline Bungetrune */
+		if(bp->state == Bracteof)
+			bp->state = Bractive;
+		if(bp->state == Bractive) {
+			bp->icount -= bp->runesize;
+			bp->runesize = 0;
+		}
+	}
+
 	if(offp) {
 		offp->s = start;
 		offp->e = end;
 	}
+
 	/* writeback s and size */
 	s[i] = 0;
 	*wp = s;

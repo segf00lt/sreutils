@@ -130,6 +130,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	while((wlen = Bgetre(inb, base, 0, 0, &offset, wp, wsize)) > 0) {
 		start = offset.s;
 		end = offset.e;
+
 		stack[0] = (Resub){0};
 		i = 0;
 
@@ -160,6 +161,13 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 			}
 
 			if(t == 0) {
+				for(char *p = *wp; p - *wp < wlen; ++p) {
+					if(*p == 0) {
+						Bprint(outb, "%s: binary file matches\n", name);
+						break;
+					}
+				}
+
 				Bwrite(outb, *wp, wlen);
 				break;
 			}
