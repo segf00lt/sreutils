@@ -1,5 +1,8 @@
 #!/bin/sh
 
+[[ ! -d bin ]] && mkdir bin
+[[ -x siv_debug ]] && mv siv_debug bin
+
 FLAGS='-Wall -Wpedantic -g -O0 -fsanitize=address'
 INCLUDEPATH='../lib/include'
 LINKPATH='../lib/link'

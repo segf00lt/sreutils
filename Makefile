@@ -17,7 +17,7 @@ test:
 		-o siv_debug \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lsre -lbio -lregexp9 -lfmt -lutf
-	mv siv_debug test/bin; cd test; ./test.sh; cd ..;
+	mv siv_debug test/siv_debug; cd test; ./test.sh; cd ..;
 
 lib:
 	cd lib; ./buildlib.sh; cd ..;
