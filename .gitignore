@@ -3,7 +3,6 @@ siv
 test/bin/*
 sregexec.h
 stb_ds.h
-lib/include
 *.vim
 lib/link
 etc

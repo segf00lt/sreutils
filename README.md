@@ -28,6 +28,6 @@ in mind.
 
 ## License
 
-All my code is MIT licensed. The code in `lib` is from
+All my code is MIT licensed. The code in `lib` (with the exception of `libsre`) is from
 [plan9port](https://9fans.github.io/plan9port/unix)
 and includes it's appropriate license.
