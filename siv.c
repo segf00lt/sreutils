@@ -17,7 +17,7 @@
 #include <regexp9.h>
 #include <bio.h>
 
-#define USAGE "usage: %s [-rlh] [-e expression] [-t [0-9]] [expression] [files...]\n"
+#define USAGE "usage: %s [-rlh] [-t [0-9]] [-e expression]... [expression] [files...]\n"
 #define REMAX 10
 #define STATIC_DEPTH 32
 #define DYNAMIC_DEPTH 128
@@ -231,6 +231,9 @@ int main(int argc, char *argv[]) {
 					myerror("%s: '-t' requires an argument\n", name);
 
 				t = atoi(argv[optind]);
+
+				if(*argv[optind] != '0' && t == 0)
+					myerror("%s: '-t' invalid target index '%s'\n", name, argv[optind]);
 				break;
 			case 'h':
 				myerror(USAGE, name);
@@ -300,6 +303,12 @@ int main(int argc, char *argv[]) {
 						dstack = malloc(DYNAMIC_DEPTH * sizeof(Rframe));
 						memcpy(dstack, sstack, STATIC_DEPTH * sizeof(Rframe));
 						stack = dstack;
+					}
+
+					if(dstack != 0 && d >= DYNAMIC_DEPTH) {
+						fprint(2, "%s: max directory recursion depth reached\n", name);
+						--d;
+						continue;
 					}
 
 					stack[d].cp = stack[d - 1].cp + strlen(ent->d_name);
