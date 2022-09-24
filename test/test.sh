@@ -21,7 +21,7 @@ function unit {
 for src in *.c
 do
 	bin=${src%.c}.bin
-	gcc $FLAGS $src ../structregex.c -o $bin -I$INCLUDEPATH -L$LINKPATH -l'bio' -l'regexp9' -l'fmt' -l'utf'
+	gcc $FLAGS $src -o $bin -I$INCLUDEPATH -L$LINKPATH -l'sre' -l'bio' -l'regexp9' -l'fmt' -l'utf'
 	testbin+=($bin)
 done
 

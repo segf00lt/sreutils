@@ -6,8 +6,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <sre.h>
 
-extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
 
 // a** and a+* are greedy, a* and a+ are non-greedy
 char s[] = "not in tag <html>hello</html> not in tag";

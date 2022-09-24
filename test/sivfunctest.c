@@ -5,14 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sre.h>
 
 #define REMAX 10
 #define C_FUNC_REGEXP "^([A-Za-z_][A-Za-z_*0-9]* ?)+\\**[\n \t]*[A-Za-z_][A-Za-z_0-9]*\\(([^)]+\n?)+\\)([\n \t]*/\\*.+\\*/)?[\n \t]?{$.+^}$"
 #define C_COMMENT "/\\*.*\\*/"
 
 
-extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
-extern size_t Bgetre(Biobuf *bp, Reprog *progp, Resub *mp, int msize, char **wp, size_t *wsize);
 
 void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char **wp, size_t *wsize);
 void siv1(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char **wp, size_t *wsize);
@@ -29,7 +28,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	base = *rearr;
 	arr = rearr + 1;
 
-	while((wlen = Bgetre(inb, base, 0, 0, wp, wsize)) > 0) {
+	while((wlen = Bgetre(inb, base, 0, 0, 0, wp, wsize)) > 0) {
 		stack[0] = (Resub){0};
 		i = 0;
 
@@ -66,7 +65,7 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 void siv1(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char **wp, size_t *wsize) {
 	size_t wlen;
 
-	while((wlen = Bgetre(inb, rearr[0], 0, 0, wp, wsize)) > 0)
+	while((wlen = Bgetre(inb, rearr[0], 0, 0, 0, wp, wsize)) > 0)
 		if(siv2(rearr+1, *wp, depth - 1, t, outb))
 			Bwrite(outb, *wp, wlen);
 }

@@ -5,8 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
-
-extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
+#include <sre.h>
 
 // get 1st line of 2nd paragraph
 char case1[] = "Hello!\nNever seen you here.\n\nMy name is Joao.\nWhat is your name?\n";

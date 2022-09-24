@@ -5,10 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sre.h>
 
 #define REMAX 3 // check if rearr and stack have enough space
 
-extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
 
 void siv(Reprog *rearr[REMAX-1], char *data, int depth, int t, Biobuf *outb) {
 	Resub stack[REMAX-1];

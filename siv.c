@@ -16,14 +16,12 @@
 #include <fmt.h>
 #include <regexp9.h>
 #include <bio.h>
+#include <sre.h>
 
-#define USAGE "usage: %s [-rlh] [-t [0-9]] [-e expression]... [expression] [files...]\n"
+#define USAGE "usage: %s [-rlhG] [-t [0-9]] [-e expression]... [expression] [files...]\n"
 #define REMAX 10
 #define STATIC_DEPTH 32
 #define DYNAMIC_DEPTH 128
-
-extern size_t Bgetre(Biobuf *, Reprog *, Resub *, int, char **, size_t *);
-extern int strgetre(char *, Reprog *, Resub *, int);
 
 typedef struct {
 	char *cp;
@@ -118,8 +116,9 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	Resub stack[REMAX-2];
 	char locatbuf[256];
 	Resub range, target;
+	Bresub offset;
+	long start, end;
 	Reprog *base, **arr;
-	long start, end, offset;
 	int locatlen;
 	size_t wlen;
 	int i;
@@ -128,10 +127,9 @@ void siv(Reprog *rearr[REMAX], Biobuf *inb, Biobuf *outb, int depth, int t, char
 	base = *rearr;
 	arr = rearr + 1;
 
-	while((wlen = Bgetre(inb, base, 0, 0, wp, wsize)) > 0) {
-		offset = Boffset(inb);
-		start = offset - wlen;
-		end = offset - inb->runesize;
+	while((wlen = Bgetre(inb, base, 0, 0, &offset, wp, wsize)) > 0) {
+		start = offset.s;
+		end = offset.e;
 		stack[0] = (Resub){0};
 		i = 0;
 
@@ -192,7 +190,7 @@ int main(int argc, char *argv[]) {
 	name = argv[0];
 
 	if(argc == 1)
-		myerror("%s: no options given\n%s", name, USAGE);
+		myerror(USAGE, name);
 
 	atexit(cleanup);
 
@@ -207,6 +205,7 @@ int main(int argc, char *argv[]) {
 	n = 0;
 	recur = 0;
 	locat = 0;
+	int greedy = 0;
 
 	size_t optind;
 	for(optind = 1; optind < argc && argv[optind][0] == '-'; ++optind) {
@@ -218,7 +217,7 @@ int main(int argc, char *argv[]) {
 				if(n >= REMAX)
 					myerror("%s: too expressions given\n", name);
 
-				progarr[n++] = regcompnl(escape(argv[optind]));
+				progarr[n++] = regcompnlg(escape(argv[optind]), greedy);
 				break;
 			case 'r':
 				recur = 1;
@@ -235,6 +234,9 @@ int main(int argc, char *argv[]) {
 				if(*argv[optind] != '0' && t == 0)
 					myerror("%s: '-t' invalid target index '%s'\n", name, argv[optind]);
 				break;
+			case 'G': /* make matches greedy by default */
+				greedy = 1;
+				break;
 			case 'h':
 				myerror(USAGE, name);
 			default:
@@ -243,7 +245,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if(n == 0 && optind < argc)
-		progarr[n++] = regcompnl(escape(argv[optind++]));
+		progarr[n++] = regcompnlg(escape(argv[optind++]), greedy);
 
 	if(t < 0)
 		t += n > 1 ? n : 2;

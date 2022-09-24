@@ -5,8 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
-
-extern int strgetre(char *str, Reprog *progp, Resub *mp, int msize);
+#include <sre.h>
 
 int main(void) {
 	Reprog *r1;// *r2, *r3, *r4;

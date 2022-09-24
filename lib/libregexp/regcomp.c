@@ -99,7 +99,7 @@ operator(int t)
 	if(t != RBRA)
 		pushator(t);
 	lastwasand = FALSE;
-	if(t==STAR || t==QUEST || t==PLUS || t==RBRA || t==GSTAR || t==GPLUS)
+	if(t==STAR || t==QUEST || t==PLUS || t==RBRA || t==GSTAR || t==GPLUS || t==NGSTAR || t==NGPLUS)
 		lastwasand = TRUE;	/* these look like operands */
 }
 

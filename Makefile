@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wpedantic
+CFLAGS = -Wall -Wpedantic -g
 DEBUG = $(CFLAGS) -g -fsanitize=address
 INCLUDEPATH = lib/include
 LINKPATH = lib/link
@@ -7,16 +7,16 @@ LINKPATH = lib/link
 all: lib test siv
 
 siv: lib
-	$(CC) $(CFLAGS) -g siv.c structregex.c \
+	$(CC) $(CFLAGS) siv.c \
 		-o siv \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
-		-lbio -lregexp9 -lfmt -lutf
+		-lsre -lbio -lregexp9 -lfmt -lutf
 
 test:
-	$(CC) $(DEBUG) siv.c structregex.c \
+	$(CC) $(DEBUG) siv.c \
 		-o siv_debug \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
-		-lbio -lregexp9 -lfmt -lutf
+		-lsre -lbio -lregexp9 -lfmt -lutf
 	mv siv_debug test/bin; cd test; ./test.sh; cd ..;
 
 lib:
