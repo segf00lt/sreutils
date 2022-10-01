@@ -261,8 +261,13 @@ Bgetre_Execloop:
 							end = offset;
 						if(mp)
 							savematch(mp, msize, &tlp->se);
-						if(!greedy)
-							goto Bgetre_Return; /* nongreedy */
+						if(!greedy) {
+							if(r != Beof) {
+								bp->icount -= bp->runesize;
+								bp->runesize = 0;
+							}
+							goto Bgetre_Return;
+						}
 				}
 
 				break; /* IMPORTANT BREAK */
@@ -301,15 +306,6 @@ Bgetre_Return:
 
 		bp->icount = -n;
 		i -= n;
-	}
-
-	if(start == end && r != Beof) { /* inline Bungetrune */
-		if(bp->state == Bracteof)
-			bp->state = Bractive;
-		if(bp->state == Bractive) {
-			bp->icount -= bp->runesize;
-			bp->runesize = 0;
-		}
 	}
 
 	if(offp) {

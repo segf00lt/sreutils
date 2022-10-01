@@ -3,8 +3,13 @@ CFLAGS = -Wall -Wpedantic -g
 DEBUG = $(CFLAGS) -g -fsanitize=address
 INCLUDEPATH = lib/include
 LINKPATH = lib/link
+INSTALLPATH = /usr/local/bin
 
 all: lib test siv
+
+install: test siv
+	cp -f siv $(INSTALLPATH)
+	chmod 755 $(INSTALLPATH)/siv
 
 siv: lib
 	$(CC) $(CFLAGS) siv.c \
@@ -12,7 +17,7 @@ siv: lib
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
 		-lsre -lbio -lregexp9 -lfmt -lutf
 
-test:
+test: lib
 	$(CC) $(DEBUG) siv.c \
 		-o siv_debug \
 		-I$(INCLUDEPATH) -L$(LINKPATH) \
@@ -22,4 +27,4 @@ test:
 lib:
 	cd lib; ./buildlib.sh; cd ..;
 
-.PHONY: all siv test lib
+.PHONY: all siv test lib install

@@ -20,8 +20,6 @@ in mind.
 
 ## TODO
 
-- add look-ahead and look-behind
-- add negated group
 - refactor build and test systems
 - write `pike`
 - write `auk`
