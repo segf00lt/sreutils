@@ -5,9 +5,14 @@ mkdir -p link
 
 for l in lib*
 do
-	cd "$l"
-	make
-	cp *.h ../include
-	cp *.a ../link
-	cd ..
+	(
+	cd "$l" || exit
+	if [ "$1" = 'clean' ]; then
+		make clean
+	else
+		make
+		cp -- *.h ../include
+		cp -- *.a ../link
+	fi
+	)
 done;
