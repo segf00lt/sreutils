@@ -4,7 +4,8 @@ test/bin/*
 sregexec.h
 stb_ds.h
 *.vim
-lib/link
+lib/link/**
+lib/include/**
 etc
 tags
 vgcore*

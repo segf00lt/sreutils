@@ -27,4 +27,8 @@ test: lib
 lib:
 	cd lib; ./buildlib.sh; cd ..;
 
-.PHONY: all siv test lib install
+clean:
+	rm -f siv *.o lib/link/* lib/include/*
+	cd lib; ./buildlib.sh clean; cd ..
+
+.PHONY: all siv test lib install clean
