@@ -13,7 +13,7 @@ siv: lib
 	$(CC) $(CFLAGS) siv.c -o siv $(LDFLAGS)
 
 test: lib
-	$(CC) $(CFLAGS) siv.c -o siv_debug $(LDFLAGS)
+	$(CC) $(CFLAGS) $(DEBUG) siv.c -o siv_debug $(LDFLAGS)
 	mv siv_debug test/siv_debug; cd test; ./test.sh; cd ..;
 
 lib:

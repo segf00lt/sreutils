@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <dirent.h>
 #include <stdarg.h>
 #include <utf.h>
@@ -22,6 +23,7 @@
 #define REMAX 10
 #define STATIC_DEPTH 32
 #define DYNAMIC_DEPTH 128
+#define MAX_PATH_LEN 4096
 
 typedef struct {
 	char *cp;
@@ -29,7 +31,7 @@ typedef struct {
 } Rframe; /* recursion stack frame */
 
 char *name;
-char path[PATH_MAX + 1];
+char path[MAX_PATH_LEN + 1];
 Biobuf inb, outb;
 Reprog *progarr[REMAX];
 Rframe sstack[STATIC_DEPTH];
@@ -271,27 +273,29 @@ int main(int argc, char *argv[]) {
 	}
 
 	for(; optind < argc; ++optind) {
-		fd = open(argv[optind], O_RDONLY);
-
-		if(fd < 0) {
-			fprint(2, "%s: %s: no such file or directory\n", name, argv[optind]);
-			continue;
-		}
 
 		strcpy(path, argv[optind]);
 
-		fstat(fd, &buf);
+		if(stat(path, &buf) == -1) {
+			fprint(2, "%s: %s: could not stat\n", name, path);
+			continue;
+		}
 
-		if(!S_ISDIR(buf.st_mode)) {
+		if(S_ISREG(buf.st_mode)) {
+			fd = open(path, O_RDONLY);
 			Binits(&inb, fd, O_RDONLY, inb.bbuf - Bungetsize, inb.bsize + Bungetsize);
 			siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
 			close(fd);
 			continue;
 		}
 
+		if(!S_ISDIR(buf.st_mode)) {
+			fprint(2, "%s: %s: not file or directory\n", name, path);
+			continue;
+		}
+
 		if(!recur) {
-			fprint(2, "%s: %s: is a directory\n", name, argv[optind]);
-			close(fd);
+			fprint(2, "%s: %s: is a directory\n", name, path);
 			continue;
 		}
 
@@ -299,15 +303,16 @@ int main(int argc, char *argv[]) {
 		stack[d].cp = path + strlen(path);
 		if(*(stack[d].cp - 1) != '/')
 			*(stack[d].cp++) = '/';
-		stack[d].dp = fdopendir(fd);
+		stack[d].dp = opendir(path);
 		while(d > -1) {
 			while((ent = readdir(stack[d].dp)) != NULL) {
 				if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
 					continue;
 
 				strcpy(stack[d].cp, ent->d_name);
+				stat(path, &buf);
 
-				if(ent->d_type == DT_DIR) {
+				if(S_ISDIR(buf.st_mode)) {
 					++d;
 					if(dstack == 0 && d >= STATIC_DEPTH) {
 						dstack = malloc(DYNAMIC_DEPTH * sizeof(Rframe));
@@ -327,7 +332,7 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 
-				if(ent->d_type == DT_REG) {
+				if(S_ISREG(buf.st_mode)) {
 					fd = open(path, O_RDONLY);
 					Binits(&inb, fd, O_RDONLY, inb.bbuf - Bungetsize, inb.bsize + Bungetsize);
 					siv(progarr, &inb, &outb, depth, t, &wp, &wsize);
