@@ -1,12 +1,11 @@
-CC = gcc
-CFLAGS = -Wall -Werror -Wpedantic -g
-AR = ar
+
+CFLAGS = -Wall -Werror -Wpedantic -g -I../include/
+
 ARFLAGS = -rcs
-INCLUDEPATH = ../include/
 
 all:
-	$(CC) $(CFLAGS) -c sre.c -o sre.o -I$(INCLUDEPATH)
-	$(AR) -rcs libsre.a sre.o
+	$(CC) $(CFLAGS) -c sre.c -o sre.o
+	$(AR) $(ARFLAGS) libsre.a sre.o
 
 clean:
 	rm -f libsre.a sre.o
