@@ -1,4 +1,4 @@
-
+.POSIX:
 CFLAGS = -Wall -Werror -Wpedantic -g -I../include/
 
 ARFLAGS = -rcs
@@ -9,3 +9,4 @@ all:
 
 clean:
 	rm -f libsre.a sre.o
+.PHONY: all clean

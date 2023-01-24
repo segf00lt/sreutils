@@ -1,7 +1,7 @@
 #!/bin/sh
 
 [ ! -d bin ] && mkdir bin
-[ -x siv_debug ] && mv siv_debug bin
+[ -x siv_debug ] && mv -f siv_debug bin
 
 CFLAGS='-Wall -Wpedantic -g -O0 -fsanitize=address -I../lib/include'
 LDFLAGS='-L../lib/link -lsre -lbio -lregexp9 -lfmt -lutf'
@@ -15,9 +15,8 @@ unit(){
 	[ -z "$2" ] && run="./$1.bin" || run="$2" # if no $2 run ./$1
 	[ -z "$3" ] && check="expect/$1" || check="$3"
 
-	printf "test: $1\nstatus: "
+	printf "$1: "
 	{ eval "$run" | cmp "$check" - ; } 1>/dev/null 2>err && echo passed || { echo failed && cat err ; }
-	echo
 }
 
 for src in *.c
@@ -48,4 +47,4 @@ unit siv_singledot
 unit siv_singledot_locat
 
 rm -f err
-mv $testbin bin
+mv -f $testbin bin
