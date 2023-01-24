@@ -1,3 +1,4 @@
+*.dSYM/
 siv
 *.bin
 test/bin/*

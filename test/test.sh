@@ -6,9 +6,11 @@
 CFLAGS='-Wall -Wpedantic -g -O0 -fsanitize=address -I../lib/include'
 LDFLAGS='-L../lib/link -lsre -lbio -lregexp9 -lfmt -lutf'
 
+[[ `uname` = Darwin ]] && export MallocNanoZone=0
+
 testbin=
 
-unit(){
+unit() {
 	run=''
 	check=''
 
@@ -16,7 +18,8 @@ unit(){
 	[ -z "$3" ] && check="expect/$1" || check="$3"
 
 	printf "test: $1\nstatus: "
-	{ eval "$run" | cmp "$check" - ; } 1>/dev/null 2>err && echo passed || { echo failed && cat err ; }
+	{ eval "$run" 1>$1.out && cmp "$check" $1.out ; } 1>&2 2>err && echo passed || { echo failed && cat err $1.out ; }
+	rm $1.out
 	echo
 }
 
@@ -43,7 +46,7 @@ unit siv_comment
 unit siv_comment_greedy
 unit siv_cfunc
 unit greedy_default
-unit siv_recurse_directory
+unit siv_recurse_directory './siv_recurse_directory.bin | sort' 'expect/siv_recurse_directory'
 unit siv_singledot
 unit siv_singledot_locat
 

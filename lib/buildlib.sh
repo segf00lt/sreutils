@@ -6,6 +6,7 @@ mkdir -p link
 for l in lib*
 do
 	(
+	[ "$l" == 'libsre' ] && continue
 	cd "$l" || exit
 	if [ "$1" = 'clean' ]; then
 		make clean
@@ -16,3 +17,13 @@ do
 	fi
 	)
 done;
+
+cd libsre
+if [ "$1" = 'clean' ]; then
+	make clean
+else
+	make
+	cp -- *.h ../include
+	cp -- *.a ../link
+fi
+cd ..

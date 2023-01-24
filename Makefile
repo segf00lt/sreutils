@@ -10,10 +10,10 @@ install: test siv
 	cp -- siv   "$(DESTDIR)$(PREFIX)/bin"
 
 siv: lib
-	$(CC) $(CFLAGS) siv.c -o siv $(LDFLAGS)
+	$(CC) $(CFLAGS) $(LDFLAGS) siv.c -o siv
 
 test: lib
-	$(CC) $(CFLAGS) $(DEBUG) siv.c -o siv_debug $(LDFLAGS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(DEBUG) siv.c -o siv_debug
 	mv siv_debug test/siv_debug; cd test; ./test.sh; cd ..;
 
 lib:
