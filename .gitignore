@@ -1,4 +1,6 @@
+*.dSYM/
 siv
+pike
 *.bin
 test/bin/*
 sregexec.h

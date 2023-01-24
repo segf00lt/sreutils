@@ -6,9 +6,11 @@
 CFLAGS='-Wall -Wpedantic -g -O0 -fsanitize=address -I../lib/include'
 LDFLAGS='-L../lib/link -lsre -lbio -lregexp9 -lfmt -lutf'
 
+[[ `uname` = Darwin ]] && export MallocNanoZone=0
+
 testbin=
 
-unit(){
+unit() {
 	run=''
 	check=''
 
@@ -42,7 +44,7 @@ unit siv_comment
 unit siv_comment_greedy
 unit siv_cfunc
 unit greedy_default
-unit siv_recurse_directory
+unit siv_recurse_directory './siv_recurse_directory.bin | sort' 'expect/siv_recurse_directory'
 unit siv_singledot
 unit siv_singledot_locat
 
