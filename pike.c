@@ -24,15 +24,15 @@
 #define MAX_PATH_LEN 4096
 
 enum OPCODES {
-	OP_X = 1,
-	OP_Y,
-	OP_G,
-	OP_V,
-	OP_S,
-	OP_P,
-	OP_M,
-	OP_W,
-	OP_R,
+	OP_X = 1, // extract
+	OP_Y, // extract non matching
+	OP_G, // if match run next
+	OP_V, // if not match run next
+	OP_S, // extract matches and pass through non matches (think vim s command)
+	OP_P, // print format
+	OP_M, // move buf2 into buf1
+	OP_W, // swap buf1 and buf2
+	OP_R, // reset buf1
 };
 
 char *debug_opcodes[] = {
@@ -50,12 +50,14 @@ char *debug_opcodes[] = {
 
 typedef struct pike_inst {
 	int op;
-	int buf2;
 	union {
 		Reprog *re;
 		char *fmt;
-		int buf;
-	} arg;
+		struct {
+			unsigned int buf1;
+			unsigned int buf2;
+		};
+	};
 } Pinst;
 
 char *buffers[16] = {0};
@@ -135,22 +137,22 @@ int main(int argc, char **argv) {
 	for(i = 1; i < argc; ++i) {
 		switch(argv[i][0]) {
 		case 'x':
-			*cp++ = (Pinst){ .op = OP_X, .arg.re = regcompnlg(escape(argv[++i]), 0) };
+			*cp++ = (Pinst){ .op = OP_X, .re = regcompnlg(escape(argv[++i]), 0) };
 			break;
 		case 'y':
-			*cp++ = (Pinst){ .op = OP_Y, .arg.re = regcompnlg(escape(argv[++i]), 0) };
+			*cp++ = (Pinst){ .op = OP_Y, .re = regcompnlg(escape(argv[++i]), 0) };
 			break;
 		case 'g':
-			*cp++ = (Pinst){ .op = OP_G, .arg.re = regcompnlg(escape(argv[++i]), 0) };
+			*cp++ = (Pinst){ .op = OP_G, .re = regcompnlg(escape(argv[++i]), 0) };
 			break;
 		case 'v':
-			*cp++ = (Pinst){ .op = OP_V, .arg.re = regcompnlg(escape(argv[++i]), 0) };
+			*cp++ = (Pinst){ .op = OP_V, .re = regcompnlg(escape(argv[++i]), 0) };
 			break;
 		case 's':
-			*cp++ = (Pinst){ .op = OP_S, .arg.re = regcompnlg(escape(argv[++i]), 0) };
+			*cp++ = (Pinst){ .op = OP_S, .re = regcompnlg(escape(argv[++i]), 0) };
 			break;
 		case 'p':
-			*cp++ = (Pinst){ .op = OP_P, .arg.fmt = escape(argv[++i]) };
+			*cp++ = (Pinst){ .op = OP_P, .fmt = escape(argv[++i]) };
 			break;
 		case 'm':
 			b1 = argv[i+1][0];
@@ -167,7 +169,7 @@ int main(int argc, char **argv) {
 				b2 -= 'a';
 			else
 				myerror("%s: invalid buffer %c\n", argv[0], b2);
-			*cp++ = (Pinst){ .op = OP_M, .arg.buf = b1, .buf2 = b2 };
+			*cp++ = (Pinst){ .op = OP_M, .buf1 = b1, .buf2 = b2 };
 			i += 2;
 			break;
 		case 'w':
@@ -185,7 +187,7 @@ int main(int argc, char **argv) {
 				b2 -= 'a';
 			else
 				myerror("%s: invalid buffer %c\n", argv[0], b2);
-			*cp++ = (Pinst){ .op = OP_W, .arg.buf = b1, .buf2 = b2 };
+			*cp++ = (Pinst){ .op = OP_W, .buf1 = b1, .buf2 = b2 };
 			i += 2;
 			break;
 		case 'r':
@@ -196,7 +198,7 @@ int main(int argc, char **argv) {
 				b1 -= 'a';
 			else
 				myerror("%s: invalid buffer %c\n", argv[0], b1);
-			*cp++ = (Pinst){ .op = OP_R, .arg.buf = b1 };
+			*cp++ = (Pinst){ .op = OP_R, .buf1 = b1 };
 			++i;
 			break;
 		}
@@ -204,14 +206,14 @@ int main(int argc, char **argv) {
 
 	Pinst *p = commands;
 	for(; p < cp; ++p) {
-		print("INST %i\n\top: %s\n\tbuf2: %i\n\targ: ", p - commands, debug_opcodes[p->op], p->buf2);
+		print("INST %i\n\top: %s\n", p - commands, debug_opcodes[p->op]);
 		if(p->op == OP_P)
-			print("%s\n\n", p->arg.fmt);
+			print("\tfmt: %s\n", p->fmt);
 		else if(p->op > OP_P)
-			print("%i\n\n", p->arg.buf);
+			print("\tbuf1: %i\n\tbuf2: %i\n", p->buf1, p->buf2);
 		else {
-			print("%p\n\n", p->arg.re);
-			free(p->arg.re);
+			print("\tre: 0x%p\n", p->re);
+			free(p->re);
 		}
 	}
 	free(commands);

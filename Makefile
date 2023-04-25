@@ -1,4 +1,3 @@
-.POSIX:
 CFLAGS = -Wall -Wpedantic -I./lib/include
 LDFLAGS = -L./lib/link -lsre -lbio -lregexp9 -lfmt -lutf
 DEBUG = -g -fsanitize=address

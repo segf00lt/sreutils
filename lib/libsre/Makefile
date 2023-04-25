@@ -1,4 +1,3 @@
-.POSIX:
 CFLAGS = -Wall -Werror -Wpedantic -g -I../include/
 
 ARFLAGS = -rcs
